@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Room Auto Light</name>
+  <author>archdukejim</author>
+  <packageId>archdukejim.RoomAutoLight</packageId>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>Every room's lamps behave as one aggregated switch. Open a door and the whole room lights up on the same tick; seal it and leave, and the group cuts its own power. Any group can be put on a schedule instead: dusk to dawn follows the clock, on darkness follows how dark it actually is, so an eclipse lights the place up. Every player-owned lamp standing outdoors forms a single group, running on darkness by default. In grow rooms the ordinary lamps stand down under a lit sun lamp and pick up the night shift during its plant resting period, so nobody works in the dark. Off lights draw nothing, so each group reads as one load on the grid.</description>
+</ModMetaData>
