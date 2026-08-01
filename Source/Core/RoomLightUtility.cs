@@ -175,10 +175,19 @@ namespace RoomAutoLight
         public static bool CountsAsOccupant(Pawn pawn)
         {
             if (pawn == null || pawn.Dead || !pawn.Spawned) return false;
-            RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
-            if (!pawn.RaceProps.Humanlike && !settings.animalsCountAsOccupants) return false;
-            if (settings.sleepingPawnsCountAsEmpty && !RestUtility.Awake(pawn)) return false;
+            if (!pawn.RaceProps.Humanlike && !RoomAutoLightMod.Settings.animalsCountAsOccupants) return false;
             return true;
+        }
+
+        /// <summary>
+        /// Sleep is only ever counted indoors: nobody is trying to sleep through a perimeter
+        /// floodlight, and the dark out there is the point. What a room does about a sleeper is
+        /// then up to its own SleepDarkening setting.
+        /// </summary>
+        public static bool IsSleeping(Pawn pawn, bool outdoors)
+        {
+            if (outdoors) return false;
+            return !RestUtility.Awake(pawn);
         }
     }
 }

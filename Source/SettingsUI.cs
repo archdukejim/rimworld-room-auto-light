@@ -15,15 +15,26 @@ namespace RoomAutoLight
             listing.GapLine();
 
             listing.Label("Triggers");
-            listing.CheckboxLabeled("An open door lights the room", ref s.doorOpenLightsOn,
-                "Any door touching the room being physically open switches the whole group on.");
+            listing.Label("What lights a room on auto, by default:");
+            if (listing.RadioButton("An open door or an occupant", s.defaultTriggerLink == TriggerLink.Combined))
+                s.defaultTriggerLink = TriggerLink.Combined;
+            if (listing.RadioButton("Occupancy only", s.defaultTriggerLink == TriggerLink.Occupied))
+                s.defaultTriggerLink = TriggerLink.Occupied;
+            if (listing.RadioButton("Open doors only", s.defaultTriggerLink == TriggerLink.Doors))
+                s.defaultTriggerLink = TriggerLink.Doors;
+            listing.Label("Any room can override this from its own gizmo.");
+            listing.Gap(6f);
             listing.CheckboxLabeled("Ignore doors held open", ref s.ignoreHeldOpenDoors,
                 "Off by default, so a hold-open door counts as open and keeps its rooms lit. Turn on if you pin doors open and still want those rooms to go dark.");
-            listing.CheckboxLabeled("An occupant lights the room", ref s.occupancyLightsOn,
-                "The room stays lit while anyone is inside, so a sealed bedroom is not pitch black.");
             listing.CheckboxLabeled("Animals count as occupants", ref s.animalsCountAsOccupants);
-            listing.CheckboxLabeled("Sleeping pawns count as empty", ref s.sleepingPawnsCountAsEmpty,
-                "Lets a room go dark once everyone inside is asleep.");
+            listing.Label("Sleepers darken a room by default:");
+            if (listing.RadioButton("Dark if any occupant is asleep", s.defaultSleepDarkening == SleepDarkening.IfAny))
+                s.defaultSleepDarkening = SleepDarkening.IfAny;
+            if (listing.RadioButton("Dark once all occupants are asleep", s.defaultSleepDarkening == SleepDarkening.IfAll))
+                s.defaultSleepDarkening = SleepDarkening.IfAll;
+            if (listing.RadioButton("Never - sleepers hold the lights on", s.defaultSleepDarkening == SleepDarkening.Never))
+                s.defaultSleepDarkening = SleepDarkening.Never;
+            listing.Label("Never applied outdoors, and any room can override this from its own gizmo.");
             listing.CheckboxLabeled("Stand down under grow lights", ref s.growLightAware,
                 "In a grow room, ordinary lamps stay off while the sun lamp is lit and take over during its plant resting period, so nobody works in the dark.");
 

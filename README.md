@@ -9,6 +9,8 @@ independent buildings.
   room's whole group on.
 - **Seal it and leave and the room goes dark.** A room only turns off once every door to it is closed
   *and* nobody is inside, after a short delay so a pawn walking through does not strobe the lights.
+- **Sleepers count as nobody.** By default a room goes dark once every occupant is asleep, and lights
+  back up the moment one wakes. Per-room, and never applied outdoors.
 - **The group flips as one.** Every lamp in a room changes state on the same tick. Rooms are staggered
   against each other across the re-evaluation window, so the work is spread without ever splitting a
   room across ticks.
@@ -46,6 +48,27 @@ thresholds are configurable; the dusk one defaults to vanilla's own day/night cu
 The darkness signal deliberately reads sky glow, not the glow grid. Reading the light the lamps
 themselves cast would make the group oscillate.
 
+`Trigger` cycles which signals drive the group on auto (indoor groups only — every door on the map
+touches the outdoors, so the door trigger is meaningless there):
+
+| Setting | Meaning |
+| --- | --- |
+| `combined` | Default. An open door **or** an occupant lights the room |
+| `occupancy` | Occupants only. A door swinging open on an empty room leaves it dark — a room people pass by more than enter |
+| `doors` | Open doors only. Someone standing in it with the door shut leaves it dark — a corridor or an airlock |
+
+`Sleepers` cycles how the group treats sleeping occupants (indoor groups only — sleep never darkens
+the outdoors):
+
+| Setting | Meaning |
+| --- | --- |
+| `dark if any asleep` | One sleeper sends the room dark even with others awake — a bedroom with a workshop corner |
+| `dark if all asleep` | Default. Dark once everyone is asleep, lit again the moment one wakes |
+| `ignored` | Sleepers hold the lights on — a hospital or a barracks lit round the clock |
+
+An open door still lights the room in every case. The starting value for new rooms is a global
+setting; rooms left at that value follow it if you change it later.
+
 Selecting several lamps from the same group collapses into one set of commands. Choices survive
 saving and reloading — they are anchored to a cell rather than a room id, because room ids are
 rebuilt from scratch whenever a wall moves.
@@ -71,7 +94,7 @@ include/exclude lists for anything the heuristic gets wrong.
 
 ## Settings
 
-Triggers (door / occupancy / animals / sleeping pawns), the delay before going dark, the
+Default trigger link, held-open doors, animals, default sleeper handling, the delay before going dark, the
 re-evaluation interval, the glow levels that count as dusk and as dark, whether outdoor lamps are
 grouped, the wattage ceiling, and the defName overrides.
 

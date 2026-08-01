@@ -15,6 +15,8 @@ namespace RoomAutoLight
     {
         private const int ModeKeyBase = 84710000;
         private const int ScheduleKeyBase = 84720000;
+        private const int SleepKeyBase = 84730000;
+        private const int LinkKeyBase = 84740000;
 
         [HarmonyPostfix]
         public static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> values, Building __instance)
@@ -63,6 +65,113 @@ namespace RoomAutoLight
                 manager.SetSchedule(scheduleGroup, NextSchedule(scheduleGroup.schedule), light);
             };
             yield return schedule;
+
+            // Outdoors has no doors to speak of and sleepers never darken it, so both of the
+            // remaining controls would be no-ops there.
+            if (group.isOutdoor) yield break;
+
+            Command_Action triggers = new Command_Action();
+            triggers.defaultLabel = "Trigger: " + LinkLabel(group.link);
+            triggers.defaultDesc = LinkDesc(group.link)
+                + "\n\nOnly applies on auto with no schedule set."
+                + "\n\nCycles combined, occupancy, doors.";
+            triggers.icon = light.def.uiIcon;
+            triggers.defaultIconColor = group.link == TriggerLink.Combined
+                ? new Color(0.55f, 0.55f, 0.6f)
+                : new Color(0.65f, 0.9f, 0.72f);
+            triggers.groupKey = LinkKeyBase ^ group.roomId;
+            triggers.action = delegate
+            {
+                manager.SetTriggerLink(scheduleGroup, NextLink(scheduleGroup.link), light);
+            };
+            yield return triggers;
+
+            Command_Action sleepers = new Command_Action();
+            sleepers.defaultLabel = "Sleepers: " + SleepLabel(group.sleepDarkening);
+            sleepers.defaultDesc = SleepDesc(group.sleepDarkening)
+                + "\n\nAn open door still lights the room either way."
+                + "\n\nCycles dark if any asleep, dark if all asleep, ignored.";
+            sleepers.icon = light.def.uiIcon;
+            sleepers.defaultIconColor = group.sleepDarkening == SleepDarkening.Never
+                ? new Color(0.55f, 0.55f, 0.6f)
+                : new Color(0.72f, 0.66f, 1f);
+            sleepers.groupKey = SleepKeyBase ^ group.roomId;
+            sleepers.action = delegate
+            {
+                manager.SetSleepDarkening(scheduleGroup, NextSleepDarkening(scheduleGroup.sleepDarkening), light);
+            };
+            yield return sleepers;
+        }
+
+        private static string LinkLabel(TriggerLink link)
+        {
+            switch (link)
+            {
+                case TriggerLink.Occupied: return "occupancy";
+                case TriggerLink.Doors: return "doors";
+                default: return "combined";
+            }
+        }
+
+        private static string LinkDesc(TriggerLink link)
+        {
+            switch (link)
+            {
+                case TriggerLink.Occupied:
+                    return "Only an occupant lights this room. A door swinging open on an empty room"
+                           + " leaves it dark, which suits a room people pass by more than enter.";
+                case TriggerLink.Doors:
+                    return "Only an open door lights this room. Someone standing in it with the door"
+                           + " shut leaves it dark, which suits a corridor or an airlock.";
+                default:
+                    return "Either an open door or an occupant lights this room.";
+            }
+        }
+
+        private static TriggerLink NextLink(TriggerLink link)
+        {
+            switch (link)
+            {
+                case TriggerLink.Combined: return TriggerLink.Occupied;
+                case TriggerLink.Occupied: return TriggerLink.Doors;
+                default: return TriggerLink.Combined;
+            }
+        }
+
+        private static string SleepLabel(SleepDarkening sleepDarkening)
+        {
+            switch (sleepDarkening)
+            {
+                case SleepDarkening.IfAny: return "dark if any asleep";
+                case SleepDarkening.Never: return "ignored";
+                default: return "dark if all asleep";
+            }
+        }
+
+        private static string SleepDesc(SleepDarkening sleepDarkening)
+        {
+            switch (sleepDarkening)
+            {
+                case SleepDarkening.IfAny:
+                    return "One sleeper is enough to send this room dark, even with others awake."
+                           + " Suits a bedroom shared with a workshop corner.";
+                case SleepDarkening.Never:
+                    return "Sleepers count as ordinary occupants and hold the lights on."
+                           + " Suits a hospital or a barracks you want lit around the clock.";
+                default:
+                    return "This room goes dark once every occupant is asleep, and lights back up"
+                           + " the moment one of them wakes.";
+            }
+        }
+
+        private static SleepDarkening NextSleepDarkening(SleepDarkening sleepDarkening)
+        {
+            switch (sleepDarkening)
+            {
+                case SleepDarkening.IfAny: return SleepDarkening.IfAll;
+                case SleepDarkening.IfAll: return SleepDarkening.Never;
+                default: return SleepDarkening.IfAny;
+            }
         }
 
         private static string ScheduleLabel(LightSchedule schedule)

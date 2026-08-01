@@ -1,0 +1,57 @@
+Steam Workshop description for Room Auto Light.
+Steam uses BBCode, not Markdown. Paste everything below the line into the
+Workshop item's description field.
+--------------------------------------------------------------------------------
+
+[h1]Room Auto Light[/h1]
+
+Your colonists do not walk around flicking every lamp in a room one at a time, and neither should you. Room Auto Light treats each room's lamps as [b]one aggregated switch[/b]: they come up together, they go dark together, and while they are dark the room draws nothing from your grid.
+
+[h2]What it does[/h2]
+
+[list]
+[*][b]Open a door and the room lights up.[/b] Any door touching a room being physically open switches that room's whole group on.
+[*][b]Seal it and leave and the room goes dark.[/b] Lights out once every door is closed and nobody is inside, after a short delay so a pawn passing through does not strobe the place.
+[*][b]Sleepers count as nobody.[/b] A bedroom goes dark once its occupants are asleep and lights back up the moment one of them wakes.
+[*][b]The group flips as one.[/b] Every lamp in a room changes on the same tick. Rooms are staggered against each other, so the work is spread without ever splitting a room.
+[*][b]Power is aggregated.[/b] Select any lamp and the room reports as a single load: lamp count, wattage, current state, and why.
+[/list]
+
+[h2]Outdoor lamps[/h2]
+
+Every lamp you own standing outdoors forms [b]one single group[/b], rather than the mod trying to automate the map-sized outdoor "room". It runs [b]on darkness[/b] by default, reading how dark it actually is rather than the clock, so an eclipse or a black storm at noon brings your perimeter up exactly like nightfall does.
+
+[h2]Grow rooms[/h2]
+
+Sun lamps are left alone: vanilla already powers them down for the plant resting period. What this mod covers is the gap that leaves behind. A grow room's ordinary lamps [b]stand down while the sun lamp is lit[/b] — nothing a 30W lamp adds is visible next to a sun lamp — and take back over the moment it rests, so whoever is still harvesting at 8pm is not doing it in the dark.
+
+[h2]The controls[/h2]
+
+Select any lamp and you get four switches for its whole group. Select several lamps from the same room and they collapse into one set.
+
+[b]Room lights[/b] — [i]auto[/i] / [i]always on[/i] / [i]always off[/i]
+
+[b]Schedule[/b] — [i]off[/i] / [i]dusk to dawn[/i] (the clock, ignoring weather) / [i]on darkness[/i] (how dark it really is). While a schedule is set, it is the only thing deciding.
+
+[b]Trigger[/b] — [i]combined[/i] / [i]occupancy[/i] / [i]doors[/i]. Occupancy-only suits a room people pass by more than enter; doors-only suits a corridor or an airlock.
+
+[b]Sleepers[/b] — [i]dark if any asleep[/i] / [i]dark if all asleep[/i] / [i]ignored[/i]. Set a hospital or a barracks to ignored and it stays lit around the clock.
+
+Every choice is per room and survives saving, reloading, and rebuilt walls.
+
+[h2]Settings[/h2]
+
+Defaults for the trigger link and sleeper handling, whether doors held open count, whether animals count as occupants, the delay before a room goes dark, the re-evaluation interval, the glow levels that count as dusk and as dark, outdoor grouping, a wattage ceiling, and defName lists to force lamps in or out.
+
+[h2]Compatibility[/h2]
+
+[list]
+[*][b]RimWorld 1.6.[/b]
+[*][b]Safe to add mid-save.[/b] Removing it hands every lamp straight back to vanilla.
+[*][b]Modded lamps work out of the box.[/b] Anything that is a plain building with a glower and a power trader is picked up automatically. Lamps with a custom class can be added by defName in settings.
+[*][b]Plays nicely with the power net.[/b] Lamps are held off through the same check vanilla itself uses before re-powering anything, so there is no per-tick tug of war, no fake flicking, and no "needs power" icons cluttering your base.
+[/list]
+
+[h2]Source[/h2]
+
+MIT licensed: https://github.com/archdukejim/rimworld-room-auto-light

@@ -12,14 +12,18 @@ namespace RoomAutoLight
         private readonly HashSet<Building> registered = new HashSet<Building>();
         private readonly HashSet<Building> registeredGrowLights = new HashSet<Building>();
         private readonly Dictionary<int, RoomLightGroup> groups = new Dictionary<int, RoomLightGroup>();
-        private readonly HashSet<int> occupiedRoomIds = new HashSet<int>();
+        // Occupancy has to be tracked twice over, because whether a sleeper counts is a per-room
+        // choice: one set of rooms holding someone awake, one holding someone asleep.
+        private readonly HashSet<int> roomsWithAwake = new HashSet<int>();
+        private readonly HashSet<int> roomsWithSleeper = new HashSet<int>();
         private readonly HashSet<int> urgentRoomIds = new HashSet<int>();
 
         // Player choices are keyed by a cell rather than a room id, because room ids are rebuilt
         // from scratch every time the map loads or a wall moves. The outdoor group has no room,
         // so it carries its preferences directly.
         private Dictionary<IntVec3, RoomLightPrefs> anchors = new Dictionary<IntVec3, RoomLightPrefs>();
-        private RoomLightPrefs outdoorPrefs = new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness);
+        private RoomLightPrefs outdoorPrefs =
+            new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never, TriggerLink.Occupied);
 
         private List<RoomLightGroup>[] buckets = new List<RoomLightGroup>[1];
         private readonly List<Building> scratchLights = new List<Building>();
@@ -41,7 +45,8 @@ namespace RoomAutoLight
             Scribe_Collections.Look(ref anchors, "anchors", LookMode.Value, LookMode.Deep);
             Scribe_Deep.Look(ref outdoorPrefs, "outdoorPrefs");
             if (anchors == null) anchors = new Dictionary<IntVec3, RoomLightPrefs>();
-            if (outdoorPrefs == null) outdoorPrefs = new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness);
+            if (outdoorPrefs == null)
+                outdoorPrefs = new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never, TriggerLink.Occupied);
         }
 
         public override void FinalizeInit()
@@ -130,6 +135,20 @@ namespace RoomAutoLight
             CommitPrefs(group, anchorLight);
         }
 
+        public void SetSleepDarkening(RoomLightGroup group, SleepDarkening sleepDarkening, Building anchorLight)
+        {
+            if (group == null) return;
+            group.sleepDarkening = sleepDarkening;
+            CommitPrefs(group, anchorLight);
+        }
+
+        public void SetTriggerLink(RoomLightGroup group, TriggerLink link, Building anchorLight)
+        {
+            if (group == null) return;
+            group.link = link;
+            CommitPrefs(group, anchorLight);
+        }
+
         private void CommitPrefs(RoomLightGroup group, Building anchorLight)
         {
             if (group.isOutdoor)
@@ -140,14 +159,15 @@ namespace RoomAutoLight
             else
             {
                 ClearAnchorsFor(group.roomId);
-                RoomLightPrefs prefs = new RoomLightPrefs(group.mode, group.schedule);
+                RoomLightPrefs prefs =
+                    new RoomLightPrefs(group.mode, group.schedule, group.sleepDarkening, group.link);
                 if (!prefs.IsDefault && anchorLight != null && anchorLight.Spawned)
                     anchors[anchorLight.Position] = prefs;
             }
 
             int now = Find.TickManager.TicksGame;
             RefreshOccupancy(now, true);
-            group.Evaluate(now, occupiedRoomIds.Contains(group.roomId));
+            group.Evaluate(now, IsOccupied(group), roomsWithSleeper.Contains(group.roomId));
         }
 
         private void ClearAnchorsFor(int roomId)
@@ -197,7 +217,7 @@ namespace RoomAutoLight
                 {
                     RoomLightGroup group;
                     if (groups.TryGetValue(roomId, out group))
-                        group.Evaluate(now, occupiedRoomIds.Contains(roomId));
+                        group.Evaluate(now, IsOccupied(group), roomsWithSleeper.Contains(group.roomId));
                 }
                 urgentRoomIds.Clear();
             }
@@ -206,7 +226,7 @@ namespace RoomAutoLight
             for (int i = 0; i < bucket.Count; i++)
             {
                 RoomLightGroup group = bucket[i];
-                group.Evaluate(now, occupiedRoomIds.Contains(group.roomId));
+                group.Evaluate(now, IsOccupied(group), roomsWithSleeper.Contains(group.roomId));
             }
         }
 
@@ -220,17 +240,37 @@ namespace RoomAutoLight
             if (!force && now - lastOccupancyTick < OccupancyRefreshTicks) return;
             lastOccupancyTick = now;
 
-            occupiedRoomIds.Clear();
+            roomsWithAwake.Clear();
+            roomsWithSleeper.Clear();
+
             IReadOnlyList<Pawn> pawns = map.mapPawns.AllPawnsSpawned;
             for (int i = 0; i < pawns.Count; i++)
             {
                 Pawn pawn = pawns[i];
                 if (!RoomLightUtility.CountsAsOccupant(pawn)) continue;
+
                 Room room = RegionAndRoomQuery.RoomAt(pawn.Position, map, RegionType.Set_Passable);
                 if (room == null) continue;
 
-                if (RoomLightUtility.IsOutdoors(room)) occupiedRoomIds.Add(RoomLightGroup.OutdoorGroupId);
-                else occupiedRoomIds.Add(room.ID);
+                bool outdoors = RoomLightUtility.IsOutdoors(room);
+                int id = outdoors ? RoomLightGroup.OutdoorGroupId : room.ID;
+
+                if (RoomLightUtility.IsSleeping(pawn, outdoors)) roomsWithSleeper.Add(id);
+                else roomsWithAwake.Add(id);
+            }
+        }
+
+        /// <summary>Resolves the group's sleep rule against this tick's occupancy.</summary>
+        private bool IsOccupied(RoomLightGroup group)
+        {
+            bool awake = roomsWithAwake.Contains(group.roomId);
+            bool sleeper = roomsWithSleeper.Contains(group.roomId);
+
+            switch (group.sleepDarkening)
+            {
+                case SleepDarkening.Never: return awake || sleeper;
+                case SleepDarkening.IfAny: return awake && !sleeper;
+                default: return awake;
             }
         }
 
@@ -356,11 +396,15 @@ namespace RoomAutoLight
                 {
                     group.mode = outdoorPrefs.mode;
                     group.schedule = outdoorPrefs.schedule;
+                    group.sleepDarkening = SleepDarkening.Never;
+                    group.link = TriggerLink.Occupied;
                 }
                 else
                 {
                     group.mode = RoomLightMode.Auto;
                     group.schedule = LightSchedule.None;
+                    group.sleepDarkening = RoomAutoLightMod.Settings.defaultSleepDarkening;
+                    group.link = RoomAutoLightMod.Settings.defaultTriggerLink;
                 }
             }
 
@@ -373,6 +417,8 @@ namespace RoomAutoLight
                 if (!groups.TryGetValue(room.ID, out group)) continue;
                 group.mode = anchor.Value.mode;
                 group.schedule = anchor.Value.schedule;
+                group.sleepDarkening = anchor.Value.sleepDarkening;
+                group.link = anchor.Value.link;
             }
         }
 

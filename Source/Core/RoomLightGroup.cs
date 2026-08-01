@@ -27,6 +27,8 @@ namespace RoomAutoLight
 
         public RoomLightMode mode = RoomLightMode.Auto;
         public LightSchedule schedule = LightSchedule.None;
+        public SleepDarkening sleepDarkening = SleepDarkening.IfAll;
+        public TriggerLink link = TriggerLink.Combined;
 
         private bool lit = true;
         private int darkAtTick = -1;
@@ -81,13 +83,13 @@ namespace RoomAutoLight
             }
         }
 
-        public void Evaluate(int now, bool occupied)
+        public void Evaluate(int now, bool occupied, bool sleepersPresent)
         {
             // A wall going up mid-tick can leave the cached room behind; the next rebuild fixes it.
             if (!isOutdoor && (room == null || room.Dereferenced)) return;
 
             RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
-            bool want = ComputeWant(occupied, settings);
+            bool want = ComputeWant(occupied, sleepersPresent, settings);
 
             if (want)
             {
@@ -110,7 +112,7 @@ namespace RoomAutoLight
             Apply(false);
         }
 
-        private bool ComputeWant(bool occupied, RoomAutoLightSettings settings)
+        private bool ComputeWant(bool occupied, bool sleepersPresent, RoomAutoLightSettings settings)
         {
             if (mode == RoomLightMode.ForceOff)
             {
@@ -148,18 +150,22 @@ namespace RoomAutoLight
             }
 
             // Every door on the map touches the outdoors, so the door trigger is meaningless there.
-            if (!isOutdoor && settings.doorOpenLightsOn && RoomLightUtility.AnyOpenDoor(room))
+            if (!isOutdoor && link != TriggerLink.Occupied && RoomLightUtility.AnyOpenDoor(room))
             {
                 reason = "door open";
                 return true;
             }
-            if (settings.occupancyLightsOn && occupied)
+            if (link != TriggerLink.Doors && occupied)
             {
                 reason = "occupied";
                 return true;
             }
 
-            reason = isOutdoor ? "nobody outside" : "closed and empty";
+            if (isOutdoor) reason = "nobody outside";
+            else if (link == TriggerLink.Doors) reason = "doors closed";
+            else if (sleepersPresent) reason = "occupants asleep";
+            else if (link == TriggerLink.Occupied) reason = "empty";
+            else reason = "closed and empty";
             return false;
         }
 

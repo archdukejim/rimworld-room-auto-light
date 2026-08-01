@@ -9,11 +9,16 @@ namespace RoomAutoLight
         public bool enabled = true;
 
         // Trigger rules. A room is lit when any enabled trigger says so.
-        public bool doorOpenLightsOn = true;
-        public bool occupancyLightsOn = true;
+        // Which triggers drive a room on auto. Only the starting point: each room can override it
+        // from its own gizmo.
+        public TriggerLink defaultTriggerLink = TriggerLink.Combined;
+
         public bool ignoreHeldOpenDoors = false;
         public bool animalsCountAsOccupants = false;
-        public bool sleepingPawnsCountAsEmpty = false;
+
+        // Nobody sleeps well with the lights on. This is only the starting point: each room can
+        // override it from its own gizmo. Never applied outdoors.
+        public SleepDarkening defaultSleepDarkening = SleepDarkening.IfAll;
 
         // A room only goes dark once it has been unlit-worthy for this long, so a pawn
         // walking through does not strobe the whole group.
@@ -112,11 +117,10 @@ namespace RoomAutoLight
         {
             base.ExposeData();
             Scribe_Values.Look(ref enabled, "enabled", true);
-            Scribe_Values.Look(ref doorOpenLightsOn, "doorOpenLightsOn", true);
-            Scribe_Values.Look(ref occupancyLightsOn, "occupancyLightsOn", true);
+            Scribe_Values.Look(ref defaultTriggerLink, "defaultTriggerLink", TriggerLink.Combined);
             Scribe_Values.Look(ref ignoreHeldOpenDoors, "ignoreHeldOpenDoors", false);
             Scribe_Values.Look(ref animalsCountAsOccupants, "animalsCountAsOccupants", false);
-            Scribe_Values.Look(ref sleepingPawnsCountAsEmpty, "sleepingPawnsCountAsEmpty", false);
+            Scribe_Values.Look(ref defaultSleepDarkening, "defaultSleepDarkening", SleepDarkening.IfAll);
             Scribe_Values.Look(ref offDelayTicks, "offDelayTicks", 240);
             Scribe_Values.Look(ref updateIntervalTicks, "updateIntervalTicks", 60);
             Scribe_Values.Look(ref manageOutdoorLamps, "manageOutdoorLamps", true);
