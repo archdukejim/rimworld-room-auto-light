@@ -58,7 +58,7 @@ Never applied outdoors.
 [/list]
 
 [h3]Reset lighting circuit[/h3]
-Appears only on a lamp whose circuit is down after a room change. One click repairs every broken lamp in that room and re-forms the group around the room as it now stands.
+Appears only on a lamp whose circuit is down after a room change. One click repairs every broken lamp in that room and re-forms the group around the room as it now stands. A [b]Lighting circuit damaged[/b] alert lists the affected lamps, so clicking it cycles through them and nothing sits forgotten in the dark.
 
 [h3]Ungroup lamp[/h3]
 Per lamp rather than per group. Pulls one lamp out of its room group and hands it back to vanilla, so it keeps its own power and its own switch. Use it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing power check when the room genuinely cannot afford every lamp at once. The switch stays on the lamp while it is out, so it can rejoin.

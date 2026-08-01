@@ -32,7 +32,7 @@ Never applied outdoors.
   ignored - sleepers count as ordinary occupants and hold the lights on, which suits a hospital or a barracks you want lit around the clock.
 
 RESET LIGHTING CIRCUIT
-Appears only on a lamp whose circuit is down after a room change. One click repairs every broken lamp in that room and re-forms the group around the room as it now stands.
+Appears only on a lamp whose circuit is down after a room change. One click repairs every broken lamp in that room and re-forms the group around the room as it now stands. A Lighting circuit damaged alert lists the affected lamps, so clicking it cycles through them.
 
 UNGROUP LAMP
 Pulls one lamp out of its room group and hands it back to vanilla, so it keeps its own power and its own switch. Use it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing power check when the room cannot afford every lamp at once. The switch stays on the lamp while it is out, so it can rejoin.

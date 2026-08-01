@@ -68,7 +68,8 @@ The starting value for new rooms is a global setting; rooms left at that value f
 change it later.
 
 `Reset lighting circuit` appears only on a lamp whose circuit is down. One click repairs every broken
-lamp in that room and re-forms the group around the room as it now stands.
+lamp in that room and re-forms the group around the room as it now stands. A **Lighting circuit
+damaged** alert lists the affected lamps, so clicking it cycles through them.
 
 `Ungroup lamp` is per lamp rather than per group. An ungrouped lamp keeps its own switch and its own
 power, and is left out of the all-or-nothing check — which is the escape hatch when a room genuinely

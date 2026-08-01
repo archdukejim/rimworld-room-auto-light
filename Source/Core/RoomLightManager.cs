@@ -40,6 +40,10 @@ namespace RoomAutoLight
         // Runtime only: on load every lamp is simply recorded afresh, so loading a save can never
         // trip a break.
         private readonly Dictionary<int, int> lastRoomSignature = new Dictionary<int, int>();
+
+        // Kept ready for the alert, which is polled on a stagger and should not have to walk every
+        // registered lamp each time it is asked.
+        private readonly List<Thing> brokenLights = new List<Thing>();
         private RoomLightPrefs outdoorPrefs =
             new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never);
 
@@ -110,7 +114,7 @@ namespace RoomAutoLight
         {
             LightSuppression.Release(light);
             lastRoomSignature.Remove(light.thingIDNumber);
-            brokenIds.Remove(light.thingIDNumber);
+            if (brokenIds.Remove(light.thingIDNumber)) brokenLights.Remove(light);
             if (registered.Remove(light)) dirty = true;
         }
 
@@ -411,6 +415,7 @@ namespace RoomAutoLight
             AssignGrowLights();
             ApplyPrefs();
             RebuildBuckets();
+            RefreshBrokenCache();
         }
 
         /// <summary>
@@ -437,6 +442,20 @@ namespace RoomAutoLight
             // No off-delay: as far as the colony is concerned the circuit just took a hit.
             LightSuppression.TurnOff(light);
             return true;
+        }
+
+        /// <summary>Lamps whose circuit is down, ready for the alert to read.</summary>
+        public List<Thing> BrokenLights
+        {
+            get { return brokenLights; }
+        }
+
+        private void RefreshBrokenCache()
+        {
+            brokenLights.Clear();
+            if (brokenIds.Count == 0) return;
+            foreach (Building light in registered)
+                if (IsBroken(light) && light.Spawned) brokenLights.Add(light);
         }
 
         /// <summary>
@@ -474,6 +493,7 @@ namespace RoomAutoLight
                 LightSuppression.Unsuppress(repaired);
             }
             scratchStale.Clear();
+            RefreshBrokenCache();
 
             dirty = true;
             earliestRebuildTick = 0;

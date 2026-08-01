@@ -22,6 +22,8 @@ All notable changes to Room Auto Light. Format follows
   losing the record.
 - **`Reset lighting circuit` gizmo**, shown only on a lamp whose circuit is down. Repairs every broken
   lamp in that room at once.
+- **"Lighting circuit damaged" alert**, listing the affected lamps as culprits so clicking it cycles
+  through them. Each map keeps its broken lamps cached, since alerts are polled on a stagger.
 
 ### Performance
 
