@@ -4,87 +4,51 @@ All notable changes to Room Auto Light. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-08-01
 
-### Changed
-
-- **Doors no longer light a room; occupancy is the only trigger.** The `Trigger` gizmo and the
-  held-open-door setting go with it, along with both door patches. Rooms that gain an occupant now
-  jump the evaluation queue, so walking in still lights the room within a quarter second.
+First public release, built against RimWorld 1.6.
 
 ### Added
-
-- **Room changes break the circuit.** A wall blown out, deconstructed or built changes the room under
-  its lamps: they drop immediately and stay down until reset from any of them. Tracked per lamp on a
-  signature of the room it was last seen in, so merges, splits and reshapes are all caught. A lamp
-  seen for the first time is only recorded, so loading a save or building a lamp trips nothing. The
-  broken set is saved; turning the setting off returns every damaged circuit to service without
-  losing the record.
-- **`Reset lighting circuit` gizmo**, shown only on a lamp whose circuit is down. Repairs every broken
-  lamp in that room at once.
-- **"Lighting circuit damaged" alert**, listing the affected lamps as culprits so clicking it cycles
-  through them. Each map keeps its broken lamps cached, since alerts are polled on a stagger.
-
-### Performance
-
-- Rebuilds are debounced to at most one per 30 ticks. Walls coming down during a raid fire
-  `Room.Notify_RoomShapeChanged` repeatedly, which previously meant a full rebuild every tick for the
-  duration.
-- The per-rebuild `HashSet` and `List` allocations are hoisted into reused fields, so a rebuild no
-  longer allocates.
-
-### Fixed
-
-- **Rooms lit up one lamp at a time.** Releasing a lamp left it to `PowerNet.PowerNetTick`, which
-  restores at most 5% of the waiting parts (minimum one) once every 30 or more ticks, in random
-  order — so a five lamp room came up over several seconds. The group now sets `PowerOn` on every
-  member itself, in one pass, on the same tick.
-
-### Added
-
-- **All-or-nothing power.** A group only lights up if its power net can pay for every member that is
-  still waiting, so a room never comes up half lit. Members already drawing are not counted, so a lit
-  group always affords itself and cannot flicker; a shortfall is held for a retry delay so a marginal
-  net cannot thrash. Configurable, on by default.
-- **`Ungroup lamp` gizmo.** Pulls one lamp out of its room group and hands it back to vanilla, keeping
-  it out of both the group switching and the all-or-nothing check. Per lamp rather than per group,
-  and it stays visible on an ungrouped lamp so it can rejoin.
 
 - **Room groups.** Every lamp in a room is driven as a single switch. All members change state on the
   same tick; groups are staggered against each other so the work is spread without ever splitting a
   room across ticks.
-- **Door trigger.** Any door touching a room being physically open lights the whole group, driven by
-  an event on the door rather than by polling.
-- **Occupancy trigger.** A room stays lit while anyone is inside, with a configurable delay before
-  going dark so a pawn walking through does not strobe the lights.
-- **Aggregated power.** A dark group draws nothing from the grid, and selecting any lamp reports the
-  group as one load: lamp count, wattage, state, and the reason for it.
-- **`Room lights` gizmo.** Cycles the group between `auto`, `always on`, and `always off`.
-- **`Schedule` gizmo.** Cycles `off`, `dusk to dawn` (celestial clock, ignores weather), and
-  `on darkness` (sky glow, so an eclipse or a black storm at noon counts). While a schedule is set it
-  is the only thing deciding.
-- **`Trigger` gizmo.** Cycles which signals drive the group on auto: `combined`, `occupancy`, or
-  `doors`.
+- **Occupancy trigger.** A room lights while anyone is inside, with a configurable delay before going
+  dark so a pawn passing through does not strobe the lights. A room that gains an occupant jumps the
+  evaluation queue, so walking in lights the room within a quarter second.
+- **All-or-nothing power.** A group only lights up if its power net can pay for every member that is
+  still waiting, so a room never comes up half lit. Members already drawing are not counted, so a lit
+  group always affords itself and cannot flicker; a shortfall is held for a retry delay so a marginal
+  net cannot thrash.
+- **Aggregated reporting.** A dark group draws nothing from the grid, and selecting any lamp reports
+  the group as one load: lamp count, wattage, state, and the reason for it.
+- **`Room lights` gizmo.** Cycles the group between `auto`, `always on` and `always off`.
+- **`Schedule` gizmo.** Cycles `off`, `dusk to dawn` (celestial clock, so weather and eclipses are
+  ignored) and `on darkness` (real sky glow, so an eclipse or a black storm at noon counts). While a
+  schedule is set it is the only thing deciding.
 - **`Sleepers` gizmo.** Cycles how sleeping occupants are treated: `dark if any asleep`,
-  `dark if all asleep`, or `ignored`. Never applied outdoors.
+  `dark if all asleep` or `ignored`. Never applied outdoors.
+- **`Ungroup lamp` gizmo.** Pulls one lamp out of its room group and hands it back to vanilla, keeping
+  it out of both the group switching and the all-or-nothing check. It stays visible on an ungrouped
+  lamp so it can rejoin.
 - **Outdoor group.** Every player-owned lamp standing outdoors forms one group, defaulting to
   `on darkness`, instead of trying to automate the map-sized outdoor room.
-- **Grow room handover.** A room's ordinary lamps stand down while a sun lamp in the same room is
-  lit, and take back over during its plant resting period, so nobody works in the dark. Sun lamps
+- **Grow room handover.** A room's ordinary lamps stand down while a sun lamp in the same room is lit,
+  and take back over during its plant resting period, so nobody works in the dark. Sun lamps
   themselves are left to vanilla's own `CompProperties_Schedule`.
-- **Settings.** Default trigger link, held-open door handling, animals as occupants, default sleeper
-  handling, the delay before going dark, the re-evaluation interval, the glow levels that count as
-  dusk and as dark, outdoor grouping, the wattage ceiling, and defName include / exclude / grow-light
-  lists.
+- **Circuit breaks on room changes.** A wall blown out, deconstructed or built changes the room under
+  its lamps: they drop immediately and stay down until reset. Tracked per lamp on a signature of the
+  room it was last seen in, so merges, splits and reshapes are all caught. A lamp seen for the first
+  time is only recorded, so loading a save or building a lamp trips nothing.
+- **`Reset lighting circuit` gizmo**, shown only on a lamp whose circuit is down. Repairs every broken
+  lamp in that room at once.
+- **"Lighting circuit damaged" alert**, listing the affected lamps as culprits so clicking it cycles
+  through them.
+- **Settings.** Animals as occupants, default sleeper handling, all-or-nothing power and its retry
+  delay, whether room changes break circuits, the delay before going dark, the re-evaluation
+  interval, the glow levels that count as dusk and as dark, outdoor grouping, the wattage ceiling,
+  and defName include / exclude / grow-light lists.
 - Per-group choices persist across saves and room rebuilds, anchored to a cell rather than a room id.
-
-### Store assets
-
-- `About/Preview.png`, generated by `tools/make-preview.ps1`.
-- `About/gizmos.jpg`, an in-game shot of the four group switches.
-- `About/steam-description.txt`, the Workshop description in BBCode.
-- Every mode of every gizmo is now documented in full in the in-game mod description and on the
-  Workshop page, not just in the tooltips.
 
 ### Notes
 
@@ -92,7 +56,17 @@ All notable changes to Room Auto Light. Format follows
   `PowerNet.PowerNetTick`, in the `CompPowerTrader.PowerOn` setter, and in
   `CompGlower.ShouldBeLitNow`. One postfix there darkens the lamp and drops it off the grid with no
   per-tick fight, no synthetic flick, and no leftover "needs power" overlay.
+- Turning a group on cannot be left to the power net: `PowerNetTick` restores at most 5% of the
+  waiting parts (minimum one) once every 30 or more ticks, in random order, which lights a room lamp
+  by lamp over several seconds. The group sets `PowerOn` on every member itself, in one pass.
 - Managed lamps are plain `Building` things carrying both a glower and a power trader under the
   wattage ceiling, which picks up modded lamps while skipping sun lamps, workbenches, TVs and
   turrets.
-- Built against RimWorld 1.6.
+- One room is evaluated per tick, occupancy is refreshed four times a second, rebuilds are debounced
+  to at most one per 30 ticks, and nothing in the steady path allocates.
+
+### Store assets
+
+- `About/Preview.png`, generated by `tools/make-preview.ps1`.
+- `About/gizmos.jpg`, an in-game shot of the group switches.
+- `About/steam-description.txt`, the Workshop description in BBCode.
