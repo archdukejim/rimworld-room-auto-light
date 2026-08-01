@@ -6,7 +6,9 @@
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
-  <description>Every room's lamps behave as one aggregated switch. Open a door and the whole room lights up on the same tick; seal it and leave, and the group cuts its own power. A dark group draws nothing from the grid, so each room reads as one load.
+  <description>Every room's lamps behave as one aggregated switch. Walk in and the whole room lights up on the same tick; leave, and the group cuts its own power. A dark group draws nothing from the grid, so each room reads as one load.
+
+Move a wall and the circuit trips. A blast, a deconstruction or a new wall changes the room under its lamps, so they drop at once and stay down until you reset the circuit from any of them.
 
 Power is aggregated all or nothing: a room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Pull a lamp out with Ungroup lamp to keep it out of that check.
 
@@ -23,17 +25,14 @@ While a schedule is set it is the only thing deciding, so doors and occupants ar
   dusk to dawn - on at dusk, off at dawn. Runs on the celestial clock, so weather and eclipses are ignored and a dark storm at noon will not light it.
   on darkness - runs on how dark it actually is, so an eclipse or a black storm at noon lights the group just like nightfall does.
 
-TRIGGER
-Applies on auto with no schedule set.
-  combined - either an open door or an occupant lights the room.
-  occupancy - only an occupant lights the room. A door swinging open on an empty room leaves it dark, which suits a room people pass by more than enter.
-  doors - only an open door lights the room. Someone standing in it with the door shut leaves it dark, which suits a corridor or an airlock.
-
 SLEEPERS
-Never applied outdoors. An open door still lights the room in every case.
+Never applied outdoors.
   dark if any asleep - one sleeper is enough to send the room dark even with others awake, which suits a bedroom shared with a workshop corner.
   dark if all asleep - the room goes dark once every occupant is asleep, and lights back up the moment one of them wakes.
   ignored - sleepers count as ordinary occupants and hold the lights on, which suits a hospital or a barracks you want lit around the clock.
+
+RESET LIGHTING CIRCUIT
+Appears only on a lamp whose circuit is down after a room change. One click repairs every broken lamp in that room and re-forms the group around the room as it now stands.
 
 UNGROUP LAMP
 Pulls one lamp out of its room group and hands it back to vanilla, so it keeps its own power and its own switch. Use it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing power check when the room cannot afford every lamp at once. The switch stays on the lamp while it is out, so it can rejoin.

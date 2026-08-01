@@ -7,10 +7,12 @@ independent buildings.
 
 ## Behaviour
 
-- **Open a door and the room lights up.** Any door touching a room being physically open switches that
-  room's whole group on.
-- **Seal it and leave and the room goes dark.** A room only turns off once every door to it is closed
-  *and* nobody is inside, after a short delay so a pawn walking through does not strobe the lights.
+- **Walk in and the room lights up.** The whole group comes on within a quarter second of someone
+  entering — rooms that just gained an occupant jump the evaluation queue.
+- **Leave and it goes dark**, after a short delay so a pawn passing through does not strobe the
+  lights.
+- **Move a wall and the circuit trips.** A blast, a deconstruction or a new wall changes the room
+  under its lamps; they drop immediately and stay down until you reset them.
 - **Sleepers count as nobody.** By default a room goes dark once every occupant is asleep, and lights
   back up the moment one wakes. Per-room, and never applied outdoors.
 - **The group flips as one.** Every lamp in a room changes state on the same tick. Rooms are staggered
@@ -53,15 +55,6 @@ thresholds are configurable; the dusk one defaults to vanilla's own day/night cu
 The darkness signal deliberately reads sky glow, not the glow grid. Reading the light the lamps
 themselves cast would make the group oscillate.
 
-`Trigger` cycles which signals drive the group on auto (indoor groups only — every door on the map
-touches the outdoors, so the door trigger is meaningless there):
-
-| Setting | Meaning |
-| --- | --- |
-| `combined` | Default. An open door **or** an occupant lights the room |
-| `occupancy` | Occupants only. A door swinging open on an empty room leaves it dark — a room people pass by more than enter |
-| `doors` | Open doors only. Someone standing in it with the door shut leaves it dark — a corridor or an airlock |
-
 `Sleepers` cycles how the group treats sleeping occupants (indoor groups only — sleep never darkens
 the outdoors):
 
@@ -71,8 +64,11 @@ the outdoors):
 | `dark if all asleep` | Default. Dark once everyone is asleep, lit again the moment one wakes |
 | `ignored` | Sleepers hold the lights on — a hospital or a barracks lit round the clock |
 
-An open door still lights the room in every case. The starting value for new rooms is a global
-setting; rooms left at that value follow it if you change it later.
+The starting value for new rooms is a global setting; rooms left at that value follow it if you
+change it later.
+
+`Reset lighting circuit` appears only on a lamp whose circuit is down. One click repairs every broken
+lamp in that room and re-forms the group around the room as it now stands.
 
 `Ungroup lamp` is per lamp rather than per group. An ungrouped lamp keeps its own switch and its own
 power, and is left out of the all-or-nothing check — which is the escape hatch when a room genuinely
@@ -100,6 +96,18 @@ Left to that, a five lamp room comes up one lamp at a time over several seconds.
 releases every member and then sets `PowerOn` on each itself, in one pass, guarded by the same
 conditions `CompPowerTrader.PowerOn` would otherwise warn about.
 
+### Breaking a circuit
+
+The break is tracked **per lamp**, not per group, keyed on a signature of the room each lamp was last
+seen in — room id combined with an outline hash of cell count, extents and region count. Watching a
+group's own room for reshaping would miss the case the mechanic exists for: a blast that merges a
+room into the outdoors produces brand new `Room` objects, so the old group is simply pruned and its
+lamps handed back. Watching the lamp catches merges, splits and reshapes alike.
+
+A lamp seen for the first time is only recorded, never broken, so loading a save or building a new
+lamp trips nothing. The signature map is runtime-only for that reason; the broken set itself is
+saved, or a reload would repair every circuit for free.
+
 ### Holding a lamp off
 
 RimWorld already routes every re-power decision through `FlickUtility.WantsToBeOn`:
@@ -121,8 +129,8 @@ include/exclude lists for anything the heuristic gets wrong.
 
 ## Settings
 
-Default trigger link, held-open doors, animals, default sleeper handling, all-or-nothing power and
-its retry delay, the delay before going dark, the
+Animals as occupants, default sleeper handling, all-or-nothing power and its retry delay, whether
+room changes break circuits, the delay before going dark, the
 re-evaluation interval, the glow levels that count as dusk and as dark, whether outdoor lamps are
 grouped, the wattage ceiling, and the defName overrides.
 

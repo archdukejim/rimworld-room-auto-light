@@ -13,8 +13,9 @@ Your colonists do not walk around flicking every lamp in a room one at a time, a
 [h2]What it does[/h2]
 
 [list]
-[*][b]Open a door and the room lights up.[/b] Any door touching a room being physically open switches that room's whole group on.
-[*][b]Seal it and leave and the room goes dark.[/b] Lights out once every door is closed and nobody is inside, after a short delay so a pawn passing through does not strobe the place.
+[*][b]Walk in and the room lights up.[/b] The whole group comes on within a quarter second of someone entering.
+[*][b]Leave and it goes dark[/b], after a short delay so a pawn passing through does not strobe the place.
+[*][b]Move a wall and the circuit trips.[/b] A blast, a deconstruction or a new wall changes the room under its lamps: they drop at once and stay down until you reset the circuit from any of them.
 [*][b]Sleepers count as nobody.[/b] A bedroom goes dark once its occupants are asleep and lights back up the moment one of them wakes.
 [*][b]The group flips as one.[/b] Every lamp in a room changes on the same tick, not one at a time over several seconds the way the vanilla power net restores things. Rooms are staggered against each other, so the work is spread without ever splitting a room.
 [*][b]Power is aggregated, all or nothing.[/b] A room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Select any lamp and the room reports as a single load: lamp count, wattage, current state, and why.
@@ -48,21 +49,16 @@ While a schedule is set it is the [i]only[/i] thing deciding, so doors and occup
 [*][b]on darkness[/b] — runs on how dark it actually is, so an eclipse or a black storm at noon lights the group just like nightfall does.
 [/list]
 
-[h3]Trigger[/h3]
-Applies on auto with no schedule set.
-[list]
-[*][b]combined[/b] — either an open door or an occupant lights the room.
-[*][b]occupancy[/b] — only an occupant lights the room. A door swinging open on an empty room leaves it dark, which suits a room people pass by more than enter.
-[*][b]doors[/b] — only an open door lights the room. Someone standing in it with the door shut leaves it dark, which suits a corridor or an airlock.
-[/list]
-
 [h3]Sleepers[/h3]
-Never applied outdoors. An open door still lights the room in every case.
+Never applied outdoors.
 [list]
 [*][b]dark if any asleep[/b] — one sleeper is enough to send the room dark even with others awake, which suits a bedroom shared with a workshop corner.
 [*][b]dark if all asleep[/b] — the room goes dark once every occupant is asleep, and lights back up the moment one of them wakes.
 [*][b]ignored[/b] — sleepers count as ordinary occupants and hold the lights on, which suits a hospital or a barracks you want lit around the clock.
 [/list]
+
+[h3]Reset lighting circuit[/h3]
+Appears only on a lamp whose circuit is down after a room change. One click repairs every broken lamp in that room and re-forms the group around the room as it now stands.
 
 [h3]Ungroup lamp[/h3]
 Per lamp rather than per group. Pulls one lamp out of its room group and hands it back to vanilla, so it keeps its own power and its own switch. Use it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing power check when the room genuinely cannot afford every lamp at once. The switch stays on the lamp while it is out, so it can rejoin.

@@ -146,30 +146,23 @@ namespace RoomAutoLight
         }
 
         /// <summary>
-        /// Doors live in their own single-cell doorway room, so they are never in this room's
-        /// region list. Walk the region links instead and look at what is on the other side.
+        /// Cheap stand-in for the room's outline. Cell count alone misses a wall swap that keeps
+        /// the area, and extents alone miss a wall knocked through into an identical footprint, so
+        /// both go in. Two genuinely different shapes agreeing on all of it is rare enough to
+        /// accept, and the cost of missing one is only that a circuit survives a hit.
         /// </summary>
-        public static bool AnyOpenDoor(Room room)
+        public static int RoomFingerprint(Room room)
         {
-            if (room == null) return false;
-            bool ignoreHeldOpen = RoomAutoLightMod.Settings.ignoreHeldOpenDoors;
-            List<Region> regions = room.Regions;
-            for (int i = 0; i < regions.Count; i++)
-            {
-                Region region = regions[i];
-                List<RegionLink> links = region.links;
-                if (links == null) continue;
-                for (int j = 0; j < links.Count; j++)
-                {
-                    Region other = links[j].GetOtherRegion(region);
-                    if (other == null) continue;
-                    Building_Door door = other.door;
-                    if (door == null || !door.Open) continue;
-                    if (ignoreHeldOpen && door.HoldOpen) continue;
-                    return true;
-                }
-            }
-            return false;
+            if (room == null || room.Dereferenced) return 0;
+
+            CellRect extents = room.ExtentsClose;
+            int hash = room.CellCount;
+            hash = hash * 397 ^ extents.minX;
+            hash = hash * 397 ^ extents.minZ;
+            hash = hash * 397 ^ extents.maxX;
+            hash = hash * 397 ^ extents.maxZ;
+            hash = hash * 397 ^ room.RegionCount;
+            return hash;
         }
 
         public static bool CountsAsOccupant(Pawn pawn)

@@ -19,6 +19,13 @@ namespace RoomAutoLight
             RoomLightManager manager = light.Map.GetComponent<RoomLightManager>();
             if (manager == null) return;
 
+            if (manager.IsBroken(light))
+            {
+                if (!__result.NullOrEmpty()) __result += "\n";
+                __result += "Room lights: circuit damaged by a room change - needs reset";
+                return;
+            }
+
             RoomLightGroup group = manager.GroupFor(light);
             if (group == null) return;
 

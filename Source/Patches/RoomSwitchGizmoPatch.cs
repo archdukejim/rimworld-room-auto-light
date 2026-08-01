@@ -16,7 +16,8 @@ namespace RoomAutoLight
         private const int ModeKeyBase = 84710000;
         private const int ScheduleKeyBase = 84720000;
         private const int SleepKeyBase = 84730000;
-        private const int LinkKeyBase = 84740000;
+        // Per lamp rather than per room, so one click can repair a whole selection.
+        private const int ResetKey = 84740001;
 
         // Per-lamp rather than per-group, so one key lets every selected lamp merge into one
         // control that still toggles each of them.
@@ -54,6 +55,24 @@ namespace RoomAutoLight
 
             if (ungrouped) yield break;
 
+            // A broken lamp is in no group, so this has to come before the group lookup or there
+            // would be nothing to click.
+            if (manager.IsBroken(light))
+            {
+                Command_Action reset = new Command_Action();
+                reset.defaultLabel = "Reset lighting circuit";
+                reset.defaultDesc = "This room's boundary changed under its lamps - a wall blown out,"
+                    + " deconstructed or built - so the circuit took the hit and the lights dropped."
+                    + "\n\nResetting repairs every broken lamp in this room at once and re-forms the"
+                    + " group around the room as it now stands.";
+                reset.icon = light.def.uiIcon;
+                reset.defaultIconColor = new Color(1f, 0.45f, 0.4f);
+                reset.groupKey = ResetKey;
+                reset.action = delegate { manager.ResetCircuitAt(light); };
+                yield return reset;
+                yield break;
+            }
+
             RoomLightGroup group = manager.GroupFor(light);
             if (group == null) yield break;
             string scope = group.isOutdoor ? "outdoor lights" : "room lights";
@@ -88,25 +107,8 @@ namespace RoomAutoLight
             };
             yield return schedule;
 
-            // Outdoors has no doors to speak of and sleepers never darken it, so both of the
-            // remaining controls would be no-ops there.
+            // Sleepers never darken the outdoors, so the control would be a no-op there.
             if (group.isOutdoor) yield break;
-
-            Command_Action triggers = new Command_Action();
-            triggers.defaultLabel = "Trigger: " + LinkLabel(group.link);
-            triggers.defaultDesc = LinkDesc(group.link)
-                + "\n\nOnly applies on auto with no schedule set."
-                + "\n\nCycles combined, occupancy, doors.";
-            triggers.icon = light.def.uiIcon;
-            triggers.defaultIconColor = group.link == TriggerLink.Combined
-                ? new Color(0.55f, 0.55f, 0.6f)
-                : new Color(0.65f, 0.9f, 0.72f);
-            triggers.groupKey = LinkKeyBase ^ group.roomId;
-            triggers.action = delegate
-            {
-                manager.SetTriggerLink(scheduleGroup, NextLink(scheduleGroup.link), light);
-            };
-            yield return triggers;
 
             Command_Action sleepers = new Command_Action();
             sleepers.defaultLabel = "Sleepers: " + SleepLabel(group.sleepDarkening);
@@ -123,41 +125,6 @@ namespace RoomAutoLight
                 manager.SetSleepDarkening(scheduleGroup, NextSleepDarkening(scheduleGroup.sleepDarkening), light);
             };
             yield return sleepers;
-        }
-
-        private static string LinkLabel(TriggerLink link)
-        {
-            switch (link)
-            {
-                case TriggerLink.Occupied: return "occupancy";
-                case TriggerLink.Doors: return "doors";
-                default: return "combined";
-            }
-        }
-
-        private static string LinkDesc(TriggerLink link)
-        {
-            switch (link)
-            {
-                case TriggerLink.Occupied:
-                    return "Only an occupant lights this room. A door swinging open on an empty room"
-                           + " leaves it dark, which suits a room people pass by more than enter.";
-                case TriggerLink.Doors:
-                    return "Only an open door lights this room. Someone standing in it with the door"
-                           + " shut leaves it dark, which suits a corridor or an airlock.";
-                default:
-                    return "Either an open door or an occupant lights this room.";
-            }
-        }
-
-        private static TriggerLink NextLink(TriggerLink link)
-        {
-            switch (link)
-            {
-                case TriggerLink.Combined: return TriggerLink.Occupied;
-                case TriggerLink.Occupied: return TriggerLink.Doors;
-                default: return TriggerLink.Combined;
-            }
         }
 
         private static string SleepLabel(SleepDarkening sleepDarkening)

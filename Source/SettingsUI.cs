@@ -14,18 +14,7 @@ namespace RoomAutoLight
                 "Turn this off to hand every lamp back to vanilla control immediately.");
             listing.GapLine();
 
-            listing.Label("Triggers");
-            listing.Label("What lights a room on auto, by default:");
-            if (listing.RadioButton("An open door or an occupant", s.defaultTriggerLink == TriggerLink.Combined))
-                s.defaultTriggerLink = TriggerLink.Combined;
-            if (listing.RadioButton("Occupancy only", s.defaultTriggerLink == TriggerLink.Occupied))
-                s.defaultTriggerLink = TriggerLink.Occupied;
-            if (listing.RadioButton("Open doors only", s.defaultTriggerLink == TriggerLink.Doors))
-                s.defaultTriggerLink = TriggerLink.Doors;
-            listing.Label("Any room can override this from its own gizmo.");
-            listing.Gap(6f);
-            listing.CheckboxLabeled("Ignore doors held open", ref s.ignoreHeldOpenDoors,
-                "Off by default, so a hold-open door counts as open and keeps its rooms lit. Turn on if you pin doors open and still want those rooms to go dark.");
+            listing.Label("Occupancy");
             listing.CheckboxLabeled("Animals count as occupants", ref s.animalsCountAsOccupants);
             listing.Label("Sleepers darken a room by default:");
             if (listing.RadioButton("Dark if any occupant is asleep", s.defaultSleepDarkening == SleepDarkening.IfAny))
@@ -44,6 +33,8 @@ namespace RoomAutoLight
                 "A room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Ungroup a lamp to keep it out of the check.");
             listing.Label("Retry after a shortfall: " + (s.powerRetryTicks / 60f).ToString("F0") + " s");
             s.powerRetryTicks = Mathf.RoundToInt(listing.Slider(s.powerRetryTicks, 60f, 3600f));
+            listing.CheckboxLabeled("Room changes break the circuit", ref s.breakOnRoomChange,
+                "A wall blown out or deconstructed damages the room's lighting circuit: the lights drop at once and stay down until you reset the group from any of its lamps.");
 
             listing.GapLine();
             listing.Label("Timing");

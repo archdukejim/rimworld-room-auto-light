@@ -6,6 +6,31 @@ All notable changes to Room Auto Light. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Doors no longer light a room; occupancy is the only trigger.** The `Trigger` gizmo and the
+  held-open-door setting go with it, along with both door patches. Rooms that gain an occupant now
+  jump the evaluation queue, so walking in still lights the room within a quarter second.
+
+### Added
+
+- **Room changes break the circuit.** A wall blown out, deconstructed or built changes the room under
+  its lamps: they drop immediately and stay down until reset from any of them. Tracked per lamp on a
+  signature of the room it was last seen in, so merges, splits and reshapes are all caught. A lamp
+  seen for the first time is only recorded, so loading a save or building a lamp trips nothing. The
+  broken set is saved; turning the setting off returns every damaged circuit to service without
+  losing the record.
+- **`Reset lighting circuit` gizmo**, shown only on a lamp whose circuit is down. Repairs every broken
+  lamp in that room at once.
+
+### Performance
+
+- Rebuilds are debounced to at most one per 30 ticks. Walls coming down during a raid fire
+  `Room.Notify_RoomShapeChanged` repeatedly, which previously meant a full rebuild every tick for the
+  duration.
+- The per-rebuild `HashSet` and `List` allocations are hoisted into reused fields, so a rebuild no
+  longer allocates.
+
 ### Fixed
 
 - **Rooms lit up one lamp at a time.** Releasing a lamp left it to `PowerNet.PowerNetTick`, which

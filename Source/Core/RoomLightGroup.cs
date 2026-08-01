@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using RimWorld;
 using Verse;
 
-
 namespace RoomAutoLight
 {
     /// <summary>
@@ -29,7 +28,6 @@ namespace RoomAutoLight
         public RoomLightMode mode = RoomLightMode.Auto;
         public LightSchedule schedule = LightSchedule.None;
         public SleepDarkening sleepDarkening = SleepDarkening.IfAll;
-        public TriggerLink link = TriggerLink.Combined;
 
         private bool lit = true;
         private int darkAtTick = -1;
@@ -53,6 +51,7 @@ namespace RoomAutoLight
             roomId = OutdoorGroupId;
             isOutdoor = true;
             schedule = LightSchedule.Darkness;
+            sleepDarkening = SleepDarkening.Never;
         }
 
         public bool Lit { get { return lit; } }
@@ -161,23 +160,15 @@ namespace RoomAutoLight
                 return dark;
             }
 
-            // Every door on the map touches the outdoors, so the door trigger is meaningless there.
-            if (!isOutdoor && link != TriggerLink.Occupied && RoomLightUtility.AnyOpenDoor(room))
-            {
-                reason = "door open";
-                return true;
-            }
-            if (link != TriggerLink.Doors && occupied)
+            if (occupied)
             {
                 reason = "occupied";
                 return true;
             }
 
             if (isOutdoor) reason = "nobody outside";
-            else if (link == TriggerLink.Doors) reason = "doors closed";
             else if (sleepersPresent) reason = "occupants asleep";
-            else if (link == TriggerLink.Occupied) reason = "empty";
-            else reason = "closed and empty";
+            else reason = "empty";
             return false;
         }
 

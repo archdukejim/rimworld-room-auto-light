@@ -9,11 +9,9 @@ namespace RoomAutoLight
         public bool enabled = true;
 
         // Trigger rules. A room is lit when any enabled trigger says so.
-        // Which triggers drive a room on auto. Only the starting point: each room can override it
-        // from its own gizmo.
-        public TriggerLink defaultTriggerLink = TriggerLink.Combined;
-
-        public bool ignoreHeldOpenDoors = false;
+        // A group is formed around a room's outline. If a wall is blown out or deconstructed the
+        // circuit counts as damaged: the lights drop and stay down until the player resets them.
+        public bool breakOnRoomChange = true;
 
         // All or nothing: a group only lights up if the grid can pay for every one of its lamps
         // at once, so a room never comes up half lit.
@@ -125,8 +123,7 @@ namespace RoomAutoLight
         {
             base.ExposeData();
             Scribe_Values.Look(ref enabled, "enabled", true);
-            Scribe_Values.Look(ref defaultTriggerLink, "defaultTriggerLink", TriggerLink.Combined);
-            Scribe_Values.Look(ref ignoreHeldOpenDoors, "ignoreHeldOpenDoors", false);
+            Scribe_Values.Look(ref breakOnRoomChange, "breakOnRoomChange", true);
             Scribe_Values.Look(ref aggregatePower, "aggregatePower", true);
             Scribe_Values.Look(ref powerRetryTicks, "powerRetryTicks", 600);
             Scribe_Values.Look(ref animalsCountAsOccupants, "animalsCountAsOccupants", false);

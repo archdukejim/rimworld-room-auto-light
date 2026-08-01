@@ -9,6 +9,10 @@ namespace RoomAutoLight
         private const int RebuildIntervalTicks = 300;
         private const int OccupancyRefreshTicks = 15;
 
+        // Walls coming down during a raid fire Room.Notify_RoomShapeChanged over and over. Without
+        // a floor on the rebuild rate that turns into a full rebuild every tick for the duration.
+        private const int RebuildDebounceTicks = 30;
+
         private readonly HashSet<Building> registered = new HashSet<Building>();
         private readonly HashSet<Building> registeredGrowLights = new HashSet<Building>();
         private readonly Dictionary<int, RoomLightGroup> groups = new Dictionary<int, RoomLightGroup>();
@@ -26,16 +30,34 @@ namespace RoomAutoLight
         // Lamps the player has pulled out of their room's group, by thing id, which is stable
         // across saves. These fall back to plain vanilla behaviour.
         private HashSet<int> ungroupedIds = new HashSet<int>();
+
+        // Lamps whose room changed shape or identity under them: the circuit counts as damaged,
+        // so they are held dark and out of any group until the player resets them. Persisted, or
+        // a save and reload would repair every circuit for free.
+        private HashSet<int> brokenIds = new HashSet<int>();
+
+        // What room each lamp was last seen in, as room id combined with the room's outline.
+        // Runtime only: on load every lamp is simply recorded afresh, so loading a save can never
+        // trip a break.
+        private readonly Dictionary<int, int> lastRoomSignature = new Dictionary<int, int>();
         private RoomLightPrefs outdoorPrefs =
-            new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never, TriggerLink.Occupied);
+            new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never);
 
         private List<RoomLightGroup>[] buckets = new List<RoomLightGroup>[1];
+
+        // Reused across rebuilds rather than reallocated; a rebuild can run as often as the
+        // debounce allows while a base is being reshaped.
         private readonly List<Building> scratchLights = new List<Building>();
         private readonly List<int> scratchIds = new List<int>();
+        private readonly HashSet<Building> scratchAssigned = new HashSet<Building>();
+        private readonly List<Building> scratchStale = new List<Building>();
+        private readonly List<IntVec3> scratchAnchorCells = new List<IntVec3>();
+        private readonly HashSet<int> previouslyOccupied = new HashSet<int>();
 
         private bool dirty = true;
         private bool wasEnabled = true;
         private int nextRebuildTick;
+        private int earliestRebuildTick;
         private int lastOccupancyTick = -9999;
 
         public RoomLightManager(Map map) : base(map)
@@ -48,11 +70,13 @@ namespace RoomAutoLight
             base.ExposeData();
             Scribe_Collections.Look(ref anchors, "anchors", LookMode.Value, LookMode.Deep);
             Scribe_Collections.Look(ref ungroupedIds, "ungroupedIds", LookMode.Value);
+            Scribe_Collections.Look(ref brokenIds, "brokenIds", LookMode.Value);
             if (ungroupedIds == null) ungroupedIds = new HashSet<int>();
+            if (brokenIds == null) brokenIds = new HashSet<int>();
             Scribe_Deep.Look(ref outdoorPrefs, "outdoorPrefs");
             if (anchors == null) anchors = new Dictionary<IntVec3, RoomLightPrefs>();
             if (outdoorPrefs == null)
-                outdoorPrefs = new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never, TriggerLink.Occupied);
+                outdoorPrefs = new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never);
         }
 
         public override void FinalizeInit()
@@ -85,6 +109,8 @@ namespace RoomAutoLight
         public void Unregister(Building light)
         {
             LightSuppression.Release(light);
+            lastRoomSignature.Remove(light.thingIDNumber);
+            brokenIds.Remove(light.thingIDNumber);
             if (registered.Remove(light)) dirty = true;
         }
 
@@ -123,19 +149,6 @@ namespace RoomAutoLight
             dirty = true;
         }
 
-        public void NotifyDoorChanged(Building_Door door)
-        {
-            if (door == null || !door.Spawned) return;
-            IntVec3 pos = door.Position;
-            for (int i = 0; i < GenAdj.CardinalDirections.Length; i++)
-            {
-                IntVec3 cell = pos + GenAdj.CardinalDirections[i];
-                if (!cell.InBounds(map)) continue;
-                Room room = RegionAndRoomQuery.RoomAt(cell, map, RegionType.Set_Passable);
-                if (room != null) urgentRoomIds.Add(room.ID);
-            }
-        }
-
         public RoomLightGroup GroupFor(Building light)
         {
             Room room = RoomLightUtility.RoomOf(light);
@@ -168,13 +181,6 @@ namespace RoomAutoLight
             CommitPrefs(group, anchorLight);
         }
 
-        public void SetTriggerLink(RoomLightGroup group, TriggerLink link, Building anchorLight)
-        {
-            if (group == null) return;
-            group.link = link;
-            CommitPrefs(group, anchorLight);
-        }
-
         private void CommitPrefs(RoomLightGroup group, Building anchorLight)
         {
             if (group.isOutdoor)
@@ -186,7 +192,7 @@ namespace RoomAutoLight
             {
                 ClearAnchorsFor(group.roomId);
                 RoomLightPrefs prefs =
-                    new RoomLightPrefs(group.mode, group.schedule, group.sleepDarkening, group.link);
+                    new RoomLightPrefs(group.mode, group.schedule, group.sleepDarkening);
                 if (!prefs.IsDefault && anchorLight != null && anchorLight.Spawned)
                     anchors[anchorLight.Position] = prefs;
             }
@@ -199,13 +205,13 @@ namespace RoomAutoLight
         private void ClearAnchorsFor(int roomId)
         {
             if (anchors.Count == 0) return;
-            List<IntVec3> toRemove = new List<IntVec3>();
+            scratchAnchorCells.Clear();
             foreach (KeyValuePair<IntVec3, RoomLightPrefs> pair in anchors)
             {
                 Room room = RegionAndRoomQuery.RoomAtOrAdjacent(pair.Key, map, RegionType.Set_Passable);
-                if (room != null && room.ID == roomId) toRemove.Add(pair.Key);
+                if (room != null && room.ID == roomId) scratchAnchorCells.Add(pair.Key);
             }
-            for (int i = 0; i < toRemove.Count; i++) anchors.Remove(toRemove[i]);
+            for (int i = 0; i < scratchAnchorCells.Count; i++) anchors.Remove(scratchAnchorCells[i]);
         }
 
         public override void MapComponentTick()
@@ -229,10 +235,11 @@ namespace RoomAutoLight
 
             int now = Find.TickManager.TicksGame;
 
-            if (dirty || now >= nextRebuildTick)
+            if ((dirty && now >= earliestRebuildTick) || now >= nextRebuildTick)
             {
-                RebuildGroups();
+                RebuildGroups(now);
                 nextRebuildTick = now + RebuildIntervalTicks;
+                earliestRebuildTick = now + RebuildDebounceTicks;
             }
 
             RefreshOccupancy(now, false);
@@ -266,6 +273,9 @@ namespace RoomAutoLight
             if (!force && now - lastOccupancyTick < OccupancyRefreshTicks) return;
             lastOccupancyTick = now;
 
+            previouslyOccupied.Clear();
+            foreach (int id in roomsWithAwake) previouslyOccupied.Add(id);
+
             roomsWithAwake.Clear();
             roomsWithSleeper.Clear();
 
@@ -284,6 +294,11 @@ namespace RoomAutoLight
                 if (RoomLightUtility.IsSleeping(pawn, outdoors)) roomsWithSleeper.Add(id);
                 else roomsWithAwake.Add(id);
             }
+
+            // Walking into a dark room should not wait for the room's slot to come round, so any
+            // room that just gained someone awake jumps the queue.
+            foreach (int id in roomsWithAwake)
+                if (!previouslyOccupied.Contains(id)) urgentRoomIds.Add(id);
         }
 
         /// <summary>Resolves the group's sleep rule against this tick's occupancy.</summary>
@@ -300,7 +315,7 @@ namespace RoomAutoLight
             }
         }
 
-        private void RebuildGroups()
+        private void RebuildGroups(int now)
         {
             dirty = false;
             RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
@@ -315,15 +330,16 @@ namespace RoomAutoLight
                 pair.Value.growLights.Clear();
             }
 
-            List<Building> stale = null;
-            HashSet<Building> assigned = new HashSet<Building>();
+            List<Building> stale = scratchStale;
+            HashSet<Building> assigned = scratchAssigned;
+            stale.Clear();
+            assigned.Clear();
 
             foreach (Building light in registered)
             {
                 if (light == null || !light.Spawned || light.Map != map || light.Destroyed
                     || !RoomLightUtility.IsManagedLightDef(light.def))
                 {
-                    if (stale == null) stale = new List<Building>();
                     stale.Add(light);
                     continue;
                 }
@@ -332,6 +348,12 @@ namespace RoomAutoLight
 
                 Room room = RoomLightUtility.RoomOf(light);
                 if (room == null) continue;
+
+                // The room moving under a lamp is the signal, not the room object surviving. A
+                // blast that merges a room into the outdoors makes brand new rooms, so watching a
+                // group's own room for reshaping would miss the very case this is here for.
+                if (settings.breakOnRoomChange && NoteRoomAndCheckBreak(light, room)) continue;
+                if (IsBroken(light)) continue;
 
                 RoomLightGroup group;
                 if (RoomLightUtility.IsOutdoors(room))
@@ -360,19 +382,25 @@ namespace RoomAutoLight
                 assigned.Add(light);
             }
 
-            if (stale != null)
+            for (int i = 0; i < stale.Count; i++)
             {
-                for (int i = 0; i < stale.Count; i++)
-                {
-                    LightSuppression.Release(stale[i]);
-                    registered.Remove(stale[i]);
-                }
+                LightSuppression.Release(stale[i]);
+                registered.Remove(stale[i]);
             }
 
             for (int i = 0; i < scratchLights.Count; i++)
             {
                 Building light = scratchLights[i];
-                if (!assigned.Contains(light)) LightSuppression.Release(light);
+                if (assigned.Contains(light)) continue;
+                if (IsBroken(light)) continue;
+                LightSuppression.Release(light);
+            }
+
+            // Broken lamps belong to no group, so nothing else would hold them dark.
+            if (brokenIds.Count > 0 && settings.breakOnRoomChange)
+            {
+                foreach (Building light in registered)
+                    if (brokenIds.Contains(light.thingIDNumber)) LightSuppression.TurnOff(light);
             }
 
             scratchIds.Clear();
@@ -386,6 +414,72 @@ namespace RoomAutoLight
         }
 
         /// <summary>
+        /// Records the room a lamp is standing in and reports whether it moved. A lamp seen for
+        /// the first time is only recorded, so loading a save or building a new lamp never trips
+        /// anything. Returns true if this lamp is now broken.
+        /// </summary>
+        private bool NoteRoomAndCheckBreak(Building light, Room room)
+        {
+            int id = light.thingIDNumber;
+            int signature = room.ID * 397 ^ RoomLightUtility.RoomFingerprint(room);
+
+            int previous;
+            if (!lastRoomSignature.TryGetValue(id, out previous))
+            {
+                lastRoomSignature[id] = signature;
+                return false;
+            }
+            if (previous == signature) return false;
+
+            lastRoomSignature[id] = signature;
+            if (!brokenIds.Add(id)) return true;
+
+            // No off-delay: as far as the colony is concerned the circuit just took a hit.
+            LightSuppression.TurnOff(light);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks the setting too, so turning the mechanic off puts every damaged circuit straight
+        /// back into service without losing the record, in case it is turned back on.
+        /// </summary>
+        public bool IsBroken(Building light)
+        {
+            return light != null
+                   && RoomAutoLightMod.Settings.breakOnRoomChange
+                   && brokenIds.Contains(light.thingIDNumber);
+        }
+
+        /// <summary>
+        /// Resets every broken lamp sharing this lamp's room, so one click repairs the room rather
+        /// than one lamp at a time.
+        /// </summary>
+        public void ResetCircuitAt(Building light)
+        {
+            if (light == null) return;
+            Room room = RoomLightUtility.RoomOf(light);
+
+            scratchStale.Clear();
+            foreach (Building candidate in registered)
+            {
+                if (!brokenIds.Contains(candidate.thingIDNumber)) continue;
+                if (room != null && RoomLightUtility.RoomOf(candidate) != room) continue;
+                scratchStale.Add(candidate);
+            }
+
+            for (int i = 0; i < scratchStale.Count; i++)
+            {
+                Building repaired = scratchStale[i];
+                brokenIds.Remove(repaired.thingIDNumber);
+                LightSuppression.Unsuppress(repaired);
+            }
+            scratchStale.Clear();
+
+            dirty = true;
+            earliestRebuildTick = 0;
+        }
+
+        /// <summary>
         /// Runs after groups are pruned: grow lights only ever attach to a group that already
         /// exists, since a grow room with no ordinary lamps has nothing to switch.
         /// </summary>
@@ -393,13 +487,13 @@ namespace RoomAutoLight
         {
             if (registeredGrowLights.Count == 0) return;
 
-            List<Building> stale = null;
+            List<Building> stale = scratchStale;
+            stale.Clear();
             foreach (Building growLight in registeredGrowLights)
             {
                 if (growLight == null || !growLight.Spawned || growLight.Map != map || growLight.Destroyed
                     || !RoomLightUtility.IsGrowLightDef(growLight.def))
                 {
-                    if (stale == null) stale = new List<Building>();
                     stale.Add(growLight);
                     continue;
                 }
@@ -411,7 +505,6 @@ namespace RoomAutoLight
                 if (groups.TryGetValue(room.ID, out group)) group.growLights.Add(growLight);
             }
 
-            if (stale == null) return;
             for (int i = 0; i < stale.Count; i++) registeredGrowLights.Remove(stale[i]);
         }
 
@@ -425,14 +518,12 @@ namespace RoomAutoLight
                     group.mode = outdoorPrefs.mode;
                     group.schedule = outdoorPrefs.schedule;
                     group.sleepDarkening = SleepDarkening.Never;
-                    group.link = TriggerLink.Occupied;
                 }
                 else
                 {
                     group.mode = RoomLightMode.Auto;
                     group.schedule = LightSchedule.None;
                     group.sleepDarkening = RoomAutoLightMod.Settings.defaultSleepDarkening;
-                    group.link = RoomAutoLightMod.Settings.defaultTriggerLink;
                 }
             }
 
@@ -446,7 +537,6 @@ namespace RoomAutoLight
                 group.mode = anchor.Value.mode;
                 group.schedule = anchor.Value.schedule;
                 group.sleepDarkening = anchor.Value.sleepDarkening;
-                group.link = anchor.Value.link;
             }
         }
 
@@ -475,6 +565,11 @@ namespace RoomAutoLight
             foreach (KeyValuePair<int, RoomLightGroup> pair in groups) pair.Value.ReleaseAll();
             groups.Clear();
             urgentRoomIds.Clear();
+
+            // Broken lamps sit in no group, so they would otherwise stay dark after the mod is
+            // switched off. The break itself is kept, in case it is switched back on.
+            LightSuppression.ReleaseAll();
+
             RebuildBuckets();
             dirty = true;
         }
