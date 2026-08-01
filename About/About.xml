@@ -8,7 +8,9 @@
   </supportedVersions>
   <description>Every room's lamps behave as one aggregated switch. Open a door and the whole room lights up on the same tick; seal it and leave, and the group cuts its own power. A dark group draws nothing from the grid, so each room reads as one load.
 
-Select any lamp and you get four switches for its whole group. Select several lamps from the same room and they collapse into one set.
+Power is aggregated all or nothing: a room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Pull a lamp out with Ungroup lamp to keep it out of that check.
+
+Select any lamp and you get the switches for its whole group. Select several lamps from the same room and they collapse into one set.
 
 ROOM LIGHTS
   auto - doors and occupancy drive the group.
@@ -32,6 +34,9 @@ Never applied outdoors. An open door still lights the room in every case.
   dark if any asleep - one sleeper is enough to send the room dark even with others awake, which suits a bedroom shared with a workshop corner.
   dark if all asleep - the room goes dark once every occupant is asleep, and lights back up the moment one of them wakes.
   ignored - sleepers count as ordinary occupants and hold the lights on, which suits a hospital or a barracks you want lit around the clock.
+
+UNGROUP LAMP
+Pulls one lamp out of its room group and hands it back to vanilla, so it keeps its own power and its own switch. Use it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing power check when the room cannot afford every lamp at once. The switch stays on the lamp while it is out, so it can rejoin.
 
 OUTDOOR LAMPS
 Every lamp you own standing outdoors forms one single group, rather than trying to automate the map-sized outdoor room. It runs on darkness by default, so an eclipse brings your perimeter up exactly like nightfall does.

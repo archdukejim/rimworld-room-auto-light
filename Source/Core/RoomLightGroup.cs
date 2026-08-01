@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using RimWorld;
 using Verse;
 
+
 namespace RoomAutoLight
 {
     /// <summary>
@@ -32,7 +33,10 @@ namespace RoomAutoLight
 
         private bool lit = true;
         private int darkAtTick = -1;
+        private int powerDeniedUntilTick = -1;
         private string reason = "";
+
+        private readonly Dictionary<PowerNet, float> needByNet = new Dictionary<PowerNet, float>();
 
         public RoomLightGroup(Map map, Room room)
         {
@@ -90,6 +94,14 @@ namespace RoomAutoLight
 
             RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
             bool want = ComputeWant(occupied, sleepersPresent, settings);
+
+            if (want && settings.aggregatePower && !CanAffordWholeGroup(now, settings))
+            {
+                reason = "not enough power for the whole room";
+                darkAtTick = -1;
+                Apply(false);
+                return;
+            }
 
             if (want)
             {
@@ -182,17 +194,85 @@ namespace RoomAutoLight
         }
 
         /// <summary>
+        /// All or nothing: the group only lights up if every member that is still waiting for
+        /// power can be paid for at once. Members already drawing are not counted, so a lit group
+        /// always affords itself and cannot flicker. A denial is held for a cooldown, otherwise a
+        /// marginal net would thrash between "off, so there is surplus" and "on, so there is not".
+        /// </summary>
+        private bool CanAffordWholeGroup(int now, RoomAutoLightSettings settings)
+        {
+            if (now < powerDeniedUntilTick) return false;
+
+            LightSuppression.BypassForProbe = true;
+            try
+            {
+                needByNet.Clear();
+                for (int i = 0; i < lights.Count; i++)
+                {
+                    Building light = lights[i];
+                    CompPowerTrader power = light.TryGetComp<CompPowerTrader>();
+                    if (power == null || power.PowerOn) continue;
+                    if (!FlickUtility.WantsToBeOn(light)) continue;
+                    if (BreakdownableUtility.IsBrokenDown(light)) continue;
+
+                    PowerNet net = power.PowerNet;
+                    if (net == null)
+                    {
+                        powerDeniedUntilTick = now + settings.powerRetryTicks;
+                        return false;
+                    }
+
+                    CompProperties_Power props = light.def.GetCompProperties<CompProperties_Power>();
+                    float watts = props != null ? props.PowerConsumption : 0f;
+
+                    float running;
+                    needByNet.TryGetValue(net, out running);
+                    needByNet[net] = running + watts * CompPower.WattsToWattDaysPerTick;
+                }
+
+                foreach (KeyValuePair<PowerNet, float> pair in needByNet)
+                {
+                    PowerNet net = pair.Key;
+                    float stored = net.CurrentStoredEnergy();
+
+                    // Mirrors PowerNet.PowerNetTick: a net with batteries keeps a small reserve
+                    // back rather than spending itself flat.
+                    float budget = stored;
+                    if (net.batteryComps.Count > 0 && stored >= 0.1f) budget = stored - 5f;
+
+                    if (budget + net.CurrentEnergyGainRate() - pair.Value < 0f)
+                    {
+                        powerDeniedUntilTick = now + settings.powerRetryTicks;
+                        return false;
+                    }
+                }
+            }
+            finally
+            {
+                LightSuppression.BypassForProbe = false;
+            }
+
+            powerDeniedUntilTick = -1;
+            return true;
+        }
+
+        /// <summary>
         /// One pass over the members, so every lamp in the group changes state on the same tick.
-        /// Both directions are idempotent, which also picks up lamps added since the last evaluation.
+        /// Turning on releases the whole set first and only then powers it, because PowerOn is
+        /// refused for anything that does not yet want to be on.
         /// </summary>
         public void Apply(bool on)
         {
             lit = on;
-            for (int i = 0; i < lights.Count; i++)
+
+            if (!on)
             {
-                if (on) LightSuppression.TurnOn(lights[i]);
-                else LightSuppression.TurnOff(lights[i]);
+                for (int i = 0; i < lights.Count; i++) LightSuppression.TurnOff(lights[i]);
+                return;
             }
+
+            for (int i = 0; i < lights.Count; i++) LightSuppression.Unsuppress(lights[i]);
+            for (int i = 0; i < lights.Count; i++) LightSuppression.PowerUp(lights[i]);
         }
 
         public void ReleaseAll()

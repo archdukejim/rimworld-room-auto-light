@@ -22,6 +22,10 @@ namespace RoomAutoLight
         // from scratch every time the map loads or a wall moves. The outdoor group has no room,
         // so it carries its preferences directly.
         private Dictionary<IntVec3, RoomLightPrefs> anchors = new Dictionary<IntVec3, RoomLightPrefs>();
+
+        // Lamps the player has pulled out of their room's group, by thing id, which is stable
+        // across saves. These fall back to plain vanilla behaviour.
+        private HashSet<int> ungroupedIds = new HashSet<int>();
         private RoomLightPrefs outdoorPrefs =
             new RoomLightPrefs(RoomLightMode.Auto, LightSchedule.Darkness, SleepDarkening.Never, TriggerLink.Occupied);
 
@@ -43,6 +47,8 @@ namespace RoomAutoLight
         {
             base.ExposeData();
             Scribe_Collections.Look(ref anchors, "anchors", LookMode.Value, LookMode.Deep);
+            Scribe_Collections.Look(ref ungroupedIds, "ungroupedIds", LookMode.Value);
+            if (ungroupedIds == null) ungroupedIds = new HashSet<int>();
             Scribe_Deep.Look(ref outdoorPrefs, "outdoorPrefs");
             if (anchors == null) anchors = new Dictionary<IntVec3, RoomLightPrefs>();
             if (outdoorPrefs == null)
@@ -90,6 +96,26 @@ namespace RoomAutoLight
         public void UnregisterGrowLight(Building growLight)
         {
             if (registeredGrowLights.Remove(growLight)) dirty = true;
+        }
+
+        public bool IsUngrouped(Building light)
+        {
+            return light != null && ungroupedIds.Contains(light.thingIDNumber);
+        }
+
+        public void SetUngrouped(Building light, bool ungrouped)
+        {
+            if (light == null) return;
+            if (ungrouped) ungroupedIds.Add(light.thingIDNumber);
+            else ungroupedIds.Remove(light.thingIDNumber);
+
+            // Hand it back to vanilla straight away rather than after the next rebuild.
+            if (ungrouped)
+            {
+                LightSuppression.Unsuppress(light);
+                LightSuppression.PowerUp(light);
+            }
+            dirty = true;
         }
 
         public void MarkDirty()
@@ -301,6 +327,8 @@ namespace RoomAutoLight
                     stale.Add(light);
                     continue;
                 }
+
+                if (ungroupedIds.Contains(light.thingIDNumber)) continue;
 
                 Room room = RoomLightUtility.RoomOf(light);
                 if (room == null) continue;

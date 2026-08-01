@@ -16,8 +16,9 @@ Your colonists do not walk around flicking every lamp in a room one at a time, a
 [*][b]Open a door and the room lights up.[/b] Any door touching a room being physically open switches that room's whole group on.
 [*][b]Seal it and leave and the room goes dark.[/b] Lights out once every door is closed and nobody is inside, after a short delay so a pawn passing through does not strobe the place.
 [*][b]Sleepers count as nobody.[/b] A bedroom goes dark once its occupants are asleep and lights back up the moment one of them wakes.
-[*][b]The group flips as one.[/b] Every lamp in a room changes on the same tick. Rooms are staggered against each other, so the work is spread without ever splitting a room.
-[*][b]Power is aggregated.[/b] Select any lamp and the room reports as a single load: lamp count, wattage, current state, and why.
+[*][b]The group flips as one.[/b] Every lamp in a room changes on the same tick, not one at a time over several seconds the way the vanilla power net restores things. Rooms are staggered against each other, so the work is spread without ever splitting a room.
+[*][b]Power is aggregated, all or nothing.[/b] A room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Select any lamp and the room reports as a single load: lamp count, wattage, current state, and why.
+[*][b]Any lamp can be pulled out.[/b] Ungroup a lamp and it goes back to plain vanilla behaviour, keeping its own power and its own switch.
 [/list]
 
 [h2]Outdoor lamps[/h2]
@@ -62,6 +63,9 @@ Never applied outdoors. An open door still lights the room in every case.
 [*][b]dark if all asleep[/b] — the room goes dark once every occupant is asleep, and lights back up the moment one of them wakes.
 [*][b]ignored[/b] — sleepers count as ordinary occupants and hold the lights on, which suits a hospital or a barracks you want lit around the clock.
 [/list]
+
+[h3]Ungroup lamp[/h3]
+Per lamp rather than per group. Pulls one lamp out of its room group and hands it back to vanilla, so it keeps its own power and its own switch. Use it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing power check when the room genuinely cannot afford every lamp at once. The switch stays on the lamp while it is out, so it can rejoin.
 
 Every choice is per room and survives saving, reloading, and rebuilt walls.
 

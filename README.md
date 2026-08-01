@@ -20,8 +20,11 @@ independent buildings.
   clock, `on darkness` follows how dark it actually is.
 - **The outdoors is one group.** Every player-owned lamp standing outdoors is driven as a single
   switch, defaulting to `on darkness`, rather than trying to automate the map-sized outdoor "room".
-- **Power is aggregated.** A dark group draws nothing from the grid, and selecting any lamp shows the
-  group as a single load — lamp count, wattage, current state, and why.
+- **Power is aggregated, all or nothing.** A room only lights up if the grid can pay for every one of
+  its lamps at once, so it never comes up half lit. A dark group draws nothing, and selecting any
+  lamp shows the group as a single load — lamp count, wattage, current state, and why.
+- **Any lamp can be pulled out.** `Ungroup lamp` hands one lamp back to vanilla, keeping it out of
+  both the group switching and the all-or-nothing power check.
 
 ## The switches
 
@@ -71,11 +74,33 @@ the outdoors):
 An open door still lights the room in every case. The starting value for new rooms is a global
 setting; rooms left at that value follow it if you change it later.
 
+`Ungroup lamp` is per lamp rather than per group. An ungrouped lamp keeps its own switch and its own
+power, and is left out of the all-or-nothing check — which is the escape hatch when a room genuinely
+cannot afford every lamp. The control stays on the lamp while it is ungrouped, so it can rejoin.
+
 Selecting several lamps from the same group collapses into one set of commands. Choices survive
 saving and reloading — they are anchored to a cell rather than a room id, because room ids are
 rebuilt from scratch whenever a wall moves.
 
 ## How it works
+
+### Switching the group on the same tick
+
+Releasing a lamp is not enough to light it. `PowerNet.PowerNetTick` restores waiting parts on a
+deliberate drip-feed:
+
+```
+interval = max(200 / partsWantingPowerOn.Count, 30)      // at best once every 30 ticks
+if (TicksGame % interval != 0) return
+count = max(1, round(partsWantingPowerOn.Count * 0.05))  // ~5% of them
+comp  = partsWantingPowerOn.RandomElement()              // in random order
+```
+
+Left to that, a five lamp room comes up one lamp at a time over several seconds. So the group
+releases every member and then sets `PowerOn` on each itself, in one pass, guarded by the same
+conditions `CompPowerTrader.PowerOn` would otherwise warn about.
+
+### Holding a lamp off
 
 RimWorld already routes every re-power decision through `FlickUtility.WantsToBeOn`:
 
@@ -96,7 +121,8 @@ include/exclude lists for anything the heuristic gets wrong.
 
 ## Settings
 
-Default trigger link, held-open doors, animals, default sleeper handling, the delay before going dark, the
+Default trigger link, held-open doors, animals, default sleeper handling, all-or-nothing power and
+its retry delay, the delay before going dark, the
 re-evaluation interval, the glow levels that count as dusk and as dark, whether outdoor lamps are
 grouped, the wattage ceiling, and the defName overrides.
 

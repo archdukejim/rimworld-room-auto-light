@@ -14,6 +14,14 @@ namespace RoomAutoLight
         public TriggerLink defaultTriggerLink = TriggerLink.Combined;
 
         public bool ignoreHeldOpenDoors = false;
+
+        // All or nothing: a group only lights up if the grid can pay for every one of its lamps
+        // at once, so a room never comes up half lit.
+        public bool aggregatePower = true;
+
+        // How long a group that could not be paid for waits before asking again. Without this a
+        // marginal net would thrash between "off, so there is surplus" and "on, so there is not".
+        public int powerRetryTicks = 600;
         public bool animalsCountAsOccupants = false;
 
         // Nobody sleeps well with the lights on. This is only the starting point: each room can
@@ -119,6 +127,8 @@ namespace RoomAutoLight
             Scribe_Values.Look(ref enabled, "enabled", true);
             Scribe_Values.Look(ref defaultTriggerLink, "defaultTriggerLink", TriggerLink.Combined);
             Scribe_Values.Look(ref ignoreHeldOpenDoors, "ignoreHeldOpenDoors", false);
+            Scribe_Values.Look(ref aggregatePower, "aggregatePower", true);
+            Scribe_Values.Look(ref powerRetryTicks, "powerRetryTicks", 600);
             Scribe_Values.Look(ref animalsCountAsOccupants, "animalsCountAsOccupants", false);
             Scribe_Values.Look(ref defaultSleepDarkening, "defaultSleepDarkening", SleepDarkening.IfAll);
             Scribe_Values.Look(ref offDelayTicks, "offDelayTicks", 240);

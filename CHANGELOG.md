@@ -6,7 +6,22 @@ All notable changes to Room Auto Light. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Rooms lit up one lamp at a time.** Releasing a lamp left it to `PowerNet.PowerNetTick`, which
+  restores at most 5% of the waiting parts (minimum one) once every 30 or more ticks, in random
+  order — so a five lamp room came up over several seconds. The group now sets `PowerOn` on every
+  member itself, in one pass, on the same tick.
+
 ### Added
+
+- **All-or-nothing power.** A group only lights up if its power net can pay for every member that is
+  still waiting, so a room never comes up half lit. Members already drawing are not counted, so a lit
+  group always affords itself and cannot flicker; a shortfall is held for a retry delay so a marginal
+  net cannot thrash. Configurable, on by default.
+- **`Ungroup lamp` gizmo.** Pulls one lamp out of its room group and hands it back to vanilla, keeping
+  it out of both the group switching and the all-or-nothing check. Per lamp rather than per group,
+  and it stays visible on an ungrouped lamp so it can rejoin.
 
 - **Room groups.** Every lamp in a room is driven as a single switch. All members change state on the
   same tick; groups are staggered against each other so the work is spread without ever splitting a

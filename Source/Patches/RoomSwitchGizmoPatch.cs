@@ -18,6 +18,10 @@ namespace RoomAutoLight
         private const int SleepKeyBase = 84730000;
         private const int LinkKeyBase = 84740000;
 
+        // Per-lamp rather than per-group, so one key lets every selected lamp merge into one
+        // control that still toggles each of them.
+        private const int UngroupKey = 84750001;
+
         [HarmonyPostfix]
         public static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> values, Building __instance)
         {
@@ -30,10 +34,28 @@ namespace RoomAutoLight
             RoomLightManager manager = __instance.Map.GetComponent<RoomLightManager>();
             if (manager == null) yield break;
 
-            RoomLightGroup group = manager.GroupFor(__instance);
-            if (group == null) yield break;
-
             Building light = __instance;
+            bool ungrouped = manager.IsUngrouped(light);
+
+            // Rendered before the group check and regardless of membership: once a lamp is out of
+            // its group there is no group to hang the control off, and it could never rejoin.
+            Command_Toggle join = new Command_Toggle();
+            join.defaultLabel = "Ungroup lamp";
+            join.defaultDesc = "Pulls this one lamp out of its room group and hands it back to vanilla,"
+                + " so it keeps its own power and its own switch."
+                + "\n\nUse it for a lamp you always want lit, or to keep one lamp out of the all-or-nothing"
+                + " power check when the room cannot afford every lamp at once.";
+            join.icon = light.def.uiIcon;
+            join.defaultIconColor = ungrouped ? new Color(0.9f, 0.55f, 0.5f) : new Color(0.55f, 0.55f, 0.6f);
+            join.groupKey = UngroupKey;
+            join.isActive = delegate { return manager.IsUngrouped(light); };
+            join.toggleAction = delegate { manager.SetUngrouped(light, !manager.IsUngrouped(light)); };
+            yield return join;
+
+            if (ungrouped) yield break;
+
+            RoomLightGroup group = manager.GroupFor(light);
+            if (group == null) yield break;
             string scope = group.isOutdoor ? "outdoor lights" : "room lights";
 
             Command_Action mode = new Command_Action();

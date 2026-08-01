@@ -39,6 +39,13 @@ namespace RoomAutoLight
                 "In a grow room, ordinary lamps stay off while the sun lamp is lit and take over during its plant resting period, so nobody works in the dark.");
 
             listing.GapLine();
+            listing.Label("Power");
+            listing.CheckboxLabeled("All or nothing", ref s.aggregatePower,
+                "A room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Ungroup a lamp to keep it out of the check.");
+            listing.Label("Retry after a shortfall: " + (s.powerRetryTicks / 60f).ToString("F0") + " s");
+            s.powerRetryTicks = Mathf.RoundToInt(listing.Slider(s.powerRetryTicks, 60f, 3600f));
+
+            listing.GapLine();
             listing.Label("Timing");
             listing.Label("Delay before going dark: " + (s.offDelayTicks / 60f).ToString("F1") + " s");
             s.offDelayTicks = Mathf.RoundToInt(listing.Slider(s.offDelayTicks, 0f, 1200f));

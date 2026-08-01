@@ -5,7 +5,7 @@ using Verse;
 namespace RoomAutoLight
 {
     /// <summary>
-    /// The one place that says "this light is currently held off by its room group".
+    /// The one place that says "this light is currently held off by its group".
     ///
     /// Vanilla already routes every re-power decision through FlickUtility.WantsToBeOn:
     /// PowerNet.PowerNetTick skips comps that do not want to be on, CompPowerTrader.PowerOn
@@ -17,8 +17,16 @@ namespace RoomAutoLight
     {
         private static readonly HashSet<Thing> suppressed = new HashSet<Thing>();
 
+        /// <summary>
+        /// While set, IsSuppressed answers false, so a group can ask vanilla what it would say
+        /// about its own members if they were released. Only ever held across one synchronous
+        /// check inside RoomLightGroup.
+        /// </summary>
+        public static bool BypassForProbe;
+
         public static bool IsSuppressed(Thing thing)
         {
+            if (BypassForProbe) return false;
             return suppressed.Count > 0 && suppressed.Contains(thing);
         }
 
@@ -31,11 +39,8 @@ namespace RoomAutoLight
             if (power != null && power.PowerOn) power.PowerOn = false;
         }
 
-        /// <summary>
-        /// Releases the light. PowerNet re-powers it on its next tick and the resulting
-        /// PowerTurnedOn signal relights the glower, so the whole group comes up together.
-        /// </summary>
-        public static void TurnOn(Building light)
+        /// <summary>Releases the hold. Does not power anything up; PowerUp does that.</summary>
+        public static void Unsuppress(Building light)
         {
             if (light == null) return;
             if (!suppressed.Remove(light)) return;
@@ -43,9 +48,30 @@ namespace RoomAutoLight
             if (glower != null && light.Spawned) glower.UpdateLit(light.Map);
         }
 
+        /// <summary>
+        /// Powers a released lamp up immediately rather than waiting on PowerNet.PowerNetTick,
+        /// which only restores about 5% of the waiting parts every 30-odd ticks and picks them at
+        /// random. Left to vanilla, a room comes up one lamp at a time over several seconds.
+        /// The conditions mirror the ones CompPowerTrader.PowerOn would otherwise warn about.
+        /// </summary>
+        public static void PowerUp(Building light)
+        {
+            if (light == null || !light.Spawned) return;
+            CompPowerTrader power = light.TryGetComp<CompPowerTrader>();
+            if (power == null || power.PowerOn || power.PowerNet == null) return;
+            if (!FlickUtility.WantsToBeOn(light)) return;
+            if (BreakdownableUtility.IsBrokenDown(light)) return;
+            power.PowerOn = true;
+        }
+
+        /// <summary>
+        /// Hands a lamp back to vanilla in the state vanilla would have left it: released and
+        /// powered, rather than dark until the net's drip-feed happens to reach it.
+        /// </summary>
         public static void Release(Building light)
         {
-            TurnOn(light);
+            Unsuppress(light);
+            PowerUp(light);
         }
 
         public static void ReleaseAll()
@@ -59,6 +85,7 @@ namespace RoomAutoLight
                 if (light == null || !light.Spawned) continue;
                 CompGlower glower = light.TryGetComp<CompGlower>();
                 if (glower != null) glower.UpdateLit(light.Map);
+                PowerUp(light);
             }
         }
     }
