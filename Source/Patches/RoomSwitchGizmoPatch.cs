@@ -93,7 +93,7 @@ namespace RoomAutoLight
             Command_Action schedule = new Command_Action();
             schedule.defaultLabel = "Schedule: " + ScheduleLabel(group.schedule);
             schedule.defaultDesc = ScheduleDesc(group.schedule, scope, settings)
-                + "\n\nWhile a schedule is set it is the only thing deciding, so doors and occupants are"
+                + "\n\nWhile a schedule is set it is the only thing deciding, so occupants are"
                 + " ignored. Always on and always off still override it."
                 + "\n\nCycles off, dusk to dawn, on darkness.";
             schedule.icon = light.def.uiIcon;
@@ -113,7 +113,7 @@ namespace RoomAutoLight
             Command_Action sleepers = new Command_Action();
             sleepers.defaultLabel = "Sleepers: " + SleepLabel(group.sleepDarkening);
             sleepers.defaultDesc = SleepDesc(group.sleepDarkening)
-                + "\n\nAn open door still lights the room either way."
+                + "\n\nNever applied outdoors."
                 + "\n\nCycles dark if any asleep, dark if all asleep, ignored.";
             sleepers.icon = light.def.uiIcon;
             sleepers.defaultIconColor = group.sleepDarkening == SleepDarkening.Never
@@ -188,7 +188,7 @@ namespace RoomAutoLight
                            + "\n\nDark starts at sky glow "
                            + settings.darknessGlowThreshold.ToString("F2") + ".";
                 default:
-                    return "No schedule. Doors and occupants drive the " + scope + ".";
+                    return "No schedule. Occupancy drives the " + scope + ".";
             }
         }
 
