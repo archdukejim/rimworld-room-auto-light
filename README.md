@@ -3,6 +3,8 @@
 A RimWorld 1.6 mod that treats every room's lamps as **one aggregated switch** instead of a pile of
 independent buildings.
 
+![The four group switches on a selected lamp](About/gizmos.jpg)
+
 ## Behaviour
 
 - **Open a door and the room lights up.** Any door touching a room being physically open switches that
@@ -30,8 +32,8 @@ Select any lamp and you get two commands for its whole group.
 | Mode | Meaning |
 | --- | --- |
 | `auto` | Doors and occupancy drive the group |
-| `always on` | Group is held lit |
-| `always off` | Group is held dark |
+| `always on` | The group is held lit |
+| `always off` | The group is held dark |
 
 `Schedule` cycles:
 
