@@ -30,7 +30,9 @@ namespace RoomAutoLight
 
             for (int i = 0; i < maps.Count; i++)
             {
-                RoomLightManager manager = maps[i].GetComponent<RoomLightManager>();
+                Map map = maps[i];
+                if (map == null) continue;
+                RoomLightManager manager = map.GetComponent<RoomLightManager>();
                 if (manager == null) continue;
                 culprits.AddRange(manager.BrokenLights);
             }
