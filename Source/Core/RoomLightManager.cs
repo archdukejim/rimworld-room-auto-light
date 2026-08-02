@@ -227,6 +227,7 @@ namespace RoomAutoLight
             scratchAnchorCells.Clear();
             foreach (KeyValuePair<IntVec3, RoomLightPrefs> pair in anchors)
             {
+                if (!pair.Key.InBounds(map)) continue;
                 Room room = RegionAndRoomQuery.RoomAtOrAdjacent(pair.Key, map, RegionType.Set_Passable);
                 if (room != null && room.ID == roomId) scratchAnchorCells.Add(pair.Key);
             }
