@@ -13,6 +13,13 @@ namespace RoomAutoLight
     {
         public static bool Enabled;
 
+        /// <summary>
+        /// Benchmark switch: makes the rebuild recompute a room's fingerprint once per lamp the way
+        /// it did before the memo was added. Lets the A/B run in one process on one map, rather
+        /// than comparing two launches whose maps and timings never line up.
+        /// </summary>
+        public static bool BypassFingerprintCache;
+
         private static long tickCount;
         private static long rebuildCount;
         private static long evaluatedGroups;
@@ -71,6 +78,8 @@ namespace RoomAutoLight
 
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("=== Room Auto Light profile ===");
+            sb.AppendLine("mode                : "
+                          + (BypassFingerprintCache ? "PRE-FIX (fingerprint per lamp)" : "PATCHED"));
             sb.AppendLine("ticks sampled       : " + tickCount);
             sb.AppendLine("mean per tick       : " + (totalMs / tickCount * 1000.0).ToString("F1") + " us");
             sb.AppendLine("worst tick          : " + (worstTickMs * 1000.0).ToString("F1") + " us");

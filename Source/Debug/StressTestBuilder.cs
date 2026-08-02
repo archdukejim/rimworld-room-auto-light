@@ -195,5 +195,16 @@ namespace RoomAutoLight
             Log.Message(RoomLightProfiler.Report());
             Messages.Message("Room Auto Light profile written to the log.", MessageTypeDefOf.TaskCompletion, false);
         }
+
+        [DebugAction("Room Auto Light", "Profiler: toggle pre-fix mode",
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void DebugTogglePreFix()
+        {
+            RoomLightProfiler.BypassFingerprintCache = !RoomLightProfiler.BypassFingerprintCache;
+            RoomLightProfiler.Reset();
+            Messages.Message(
+                "Room Auto Light: " + (RoomLightProfiler.BypassFingerprintCache ? "PRE-FIX" : "PATCHED")
+                + " mode, counters reset.", MessageTypeDefOf.TaskCompletion, false);
+        }
     }
 }

@@ -108,7 +108,10 @@ namespace RoomAutoLight
         public override void MapGenerated()
         {
             base.MapGenerated();
-            if (StressTestBuilder.RequestedOnMapGen) StressTestBuilder.Build(map);
+            if (!StressTestBuilder.RequestedOnMapGen) return;
+
+            StressTestBuilder.Build(map);
+            StressBenchmark.Arm();
         }
 
         public override void MapRemoved()
@@ -232,6 +235,8 @@ namespace RoomAutoLight
 
         public override void MapComponentTick()
         {
+            if (StressBenchmark.Running) StressBenchmark.Advance();
+
             if (!RoomLightProfiler.Enabled)
             {
                 TickInternal();
@@ -464,7 +469,11 @@ namespace RoomAutoLight
             int id = light.thingIDNumber;
 
             int fingerprint;
-            if (!fingerprintThisPass.TryGetValue(room.ID, out fingerprint))
+            if (RoomLightProfiler.BypassFingerprintCache)
+            {
+                fingerprint = RoomLightUtility.RoomFingerprint(room);
+            }
+            else if (!fingerprintThisPass.TryGetValue(room.ID, out fingerprint))
             {
                 fingerprint = RoomLightUtility.RoomFingerprint(room);
                 fingerprintThisPass[room.ID] = fingerprint;
