@@ -45,6 +45,7 @@ namespace RoomAutoLight
         public static void Build(Map map, int pawnCount = 12)
         {
             IntVec3 origin = new IntVec3(map.Size.x / 2 - Span / 2, 0, map.Size.z / 2 - Span / 2);
+            GridOrigin = origin;
             if (origin.x < 2 || origin.z < 2)
             {
                 Log.Error("[RoomAutoLight] Map too small for the stress grid: needs " + Span + " cells square.");
@@ -57,6 +58,8 @@ namespace RoomAutoLight
             ThingDef lampDef = ThingDef.Named("StandingLamp");
             ThingDef batteryDef = ThingDef.Named("Battery");
             ThingDef stuff = ThingDefOf.Steel;
+
+            SterilizeMap(map, origin);
 
             int walls = 0, doors = 0, lamps = 0;
 
@@ -141,6 +144,52 @@ namespace RoomAutoLight
             Log.Message(summary);
         }
 
+        /// <summary>
+        /// Strips the map back to bare ground so a run measures the grid and nothing else.
+        ///
+        /// Without this the benchmark is mostly measuring the map: a fresh quicktest map brings
+        /// thousands of ticking plants, wild animals, weather and scattered chunks, all different
+        /// every launch. That showed up as a 43% spread on the do-nothing baseline, which is far
+        /// wider than any difference between the mods under test.
+        /// </summary>
+        private static void SterilizeMap(Map map, IntVec3 origin)
+        {
+            CellRect grid = new CellRect(origin.x, origin.z, Span, Span);
+
+            List<Thing> everything = new List<Thing>(map.listerThings.AllThings);
+            for (int i = 0; i < everything.Count; i++)
+            {
+                Thing t = everything[i];
+                if (t == null || t.Destroyed || !t.Spawned) continue;
+                if (grid.Contains(t.Position)) continue;
+                if (!t.def.destroyable) continue;
+                t.Destroy(DestroyMode.Vanish);
+            }
+
+            // Wild fauna tick full AI and are never in the lister's building groups.
+            List<Pawn> pawns = new List<Pawn>(map.mapPawns.AllPawnsSpawned);
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                Pawn p = pawns[i];
+                if (p == null || p.Destroyed || !p.Spawned) continue;
+                p.Destroy(DestroyMode.Vanish);
+            }
+
+            foreach (IntVec3 c in map.AllCells)
+            {
+                map.terrainGrid.SetTerrain(c, TerrainDefOf.Concrete);
+                map.roofGrid.SetRoof(c, null);
+                map.fogGrid.Unfog(c);
+                map.snowGrid.SetDepth(c, 0f);
+            }
+
+            // Pin the sky: weather and game conditions both move glow around, and a run that
+            // starts in a storm is not comparable with one that starts clear.
+            map.gameConditionManager.ActiveConditions.Clear();
+            map.weatherManager.TransitionTo(WeatherDefOf.Clear);
+            map.weatherManager.curWeatherAge = 100000;
+        }
+
         /// <summary>Doors sit at the midpoint of every interior wall segment, never on a corner.</summary>
         private static bool IsInteriorDoorCell(int x, int z)
         {
@@ -175,16 +224,40 @@ namespace RoomAutoLight
             return GenSpawn.Spawn(thing, c, map, WipeMode.Vanish);
         }
 
+        /// <summary>The grid origin, so the benchmark can address rooms by index.</summary>
+        public static IntVec3 GridOrigin { get; private set; }
+
+        public static int RoomsPerSide { get { return Rooms; } }
+
+        /// <summary>Pawns the benchmark drives. Drafted, so their own AI never moves them.</summary>
+        public static readonly List<Pawn> TestPawns = new List<Pawn>();
+
+        /// <summary>Centre cell of room (rx, rz), where the benchmark parks a pawn.</summary>
+        public static IntVec3 RoomCentre(int roomIndex)
+        {
+            int rx = roomIndex % Rooms;
+            int rz = roomIndex / Rooms % Rooms;
+            return GridOrigin + new IntVec3(rx * Pitch + 2, 0, rz * Pitch + 2);
+        }
+
         private static void SpawnPawns(Map map, IntVec3 origin, int count)
         {
+            TestPawns.Clear();
             for (int i = 0; i < count; i++)
             {
-                IntVec3 cell = origin + new IntVec3(
-                    (i % Rooms) * Pitch + 2, 0, (i / Rooms % Rooms) * Pitch + 2);
+                IntVec3 cell = RoomCentre(i);
                 if (!cell.InBounds(map)) continue;
 
                 Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
                 GenSpawn.Spawn(pawn, cell, map, WipeMode.Vanish);
+
+                // Drafted so the colonist stands where it is put. Wandering AI was the single
+                // largest source of run-to-run variance: transitions are most of the cost, and
+                // pawns chose a different number of them every run.
+                if (pawn.drafter == null) pawn.drafter = new Pawn_DraftController(pawn);
+                pawn.drafter.Drafted = true;
+
+                TestPawns.Add(pawn);
             }
         }
 

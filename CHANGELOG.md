@@ -4,6 +4,49 @@ All notable changes to Room Auto Light. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 1.0.1
+
+### Performance
+
+Measured on a purpose-built benchmark colony: a 10x10 lattice of 4x4 rooms, doors between
+neighbours, **400 lamps**, wired and battery-backed, with colonists wandering to drive occupancy.
+Both sides of each comparison ran in one process on the same map with the same pawns, switching the
+behaviour at runtime, because separate launches vary more than the changes being measured.
+
+- **Glow invalidation is coalesced across a room switch.** Profiling put 78% of the mod's time in
+  room switches costing 2.7 ms each — none of it in this mod's own logic. `GlowGrid.DirtyCell` does
+  two `MapDrawer.MapMeshDirty` calls per cell, and `Register`/`DeRegisterGlower` call it for every
+  cell of a glower's affected rect; a standing lamp is `glowRadius 12`, so a four-lamp room marked
+  ~2500 cells for a union of about 730. Vanilla already batches the glow *computation* — one
+  `ComputeGlowGridsJob` per frame however many glowers moved — so only the invalidation is touched
+  here. A switch now collects the cells and replays the distinct set through vanilla's own
+  `DirtyCell`.
+
+  | | before | after | |
+  | --- | --- | --- | --- |
+  | per room switch | 1627.8 us | 796.4 us | 2.0x |
+  | mean per tick | 59.1 us | 38.4 us | -35% |
+  | worst tick | 4354.4 us | 1746.0 us | 2.5x |
+  | share of a 60 TPS budget | 0.354% | 0.230% | |
+
+- **Room outline is computed once per room per rebuild** instead of once per lamp. `Room.ExtentsClose`
+  is not cached by the game and walks the room's whole region list on every read. Cuts rebuild cost
+  about 3x (1502 us to 388 us), though rebuilds are rare enough — six ticks in eighteen hundred —
+  that it barely moves the overall mean.
+- **Rebuilds are debounced** to at most one per 30 ticks. Walls coming down during a raid fire
+  `Room.Notify_RoomShapeChanged` repeatedly, which previously forced a full rebuild every tick for
+  the duration.
+- **The gizmo postfix no longer allocates for buildings that are not lamps.** An iterator method
+  builds its state machine when called, not when first enumerated, so the early-outs were running
+  too late and every selected building allocated a wrapper enumerator each frame.
+- Per-rebuild collections are reused rather than reallocated, so a rebuild no longer allocates.
+
+### Added
+
+- A benchmark harness behind a command-line flag, building the grid off map generation and reporting
+  to the log without any interaction. Debug actions cover building the grid on an existing colony
+  and starting or stopping a recording.
+
 ## [1.0.0] - 2026-08-01
 
 First public release, built against RimWorld 1.6.

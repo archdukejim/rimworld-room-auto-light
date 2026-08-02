@@ -76,6 +76,10 @@ namespace RoomAutoLight
         [HarmonyPrefix]
         public static bool Prefix(IntVec3 __0)
         {
+            // Counted before batching, so it measures work asked for rather than work done, and
+            // stays comparable against a mod that does no batching at all.
+            if (WholeTickProfiler.Enabled) WholeTickProfiler.CountDirtyCell();
+
             if (!GlowDirtyBatch.Active) return true;
             GlowDirtyBatch.Collect(__0);
             return false;

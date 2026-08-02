@@ -41,8 +41,31 @@ namespace RoomAutoLight
             suppressed.Add(light);
             CompPowerTrader power = light.TryGetComp<CompPowerTrader>();
             if (power == null || !power.PowerOn) return false;
-            power.PowerOn = false;
+            SetPowerQuietly(power, false);
             return true;
+        }
+
+        /// <summary>
+        /// Every power change this mod makes goes through here, so the vanilla power click is
+        /// muted no matter which path caused it - a group switch, a rebuild handing a lamp back,
+        /// an ungroup, a circuit reset, or the mod being switched off. Scoping this to the group
+        /// switch alone left the other paths still clicking.
+        ///
+        /// A lamp the player flicks by hand is untouched: vanilla re-powers that through
+        /// PowerNetTick, which never calls this.
+        /// </summary>
+        private static void SetPowerQuietly(CompPowerTrader power, bool on)
+        {
+            bool previous = SwitchSoundSilencer.Active;
+            SwitchSoundSilencer.Active = true;
+            try
+            {
+                power.PowerOn = on;
+            }
+            finally
+            {
+                SwitchSoundSilencer.Active = previous;
+            }
         }
 
         /// <summary>Releases the hold. Does not power anything up; PowerUp does that.</summary>
@@ -68,7 +91,7 @@ namespace RoomAutoLight
             if (power == null || power.PowerOn || power.PowerNet == null) return false;
             if (!FlickUtility.WantsToBeOn(light)) return false;
             if (BreakdownableUtility.IsBrokenDown(light)) return false;
-            power.PowerOn = true;
+            SetPowerQuietly(power, true);
             return true;
         }
 

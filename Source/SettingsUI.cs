@@ -58,6 +58,8 @@ namespace RoomAutoLight
             listing.CheckboxLabeled("Manage outdoor lamps as one group", ref s.manageOutdoorLamps,
                 "Every player-owned lamp standing outdoors is driven as a single switch, set to dusk-to-dawn by default.");
             listing.CheckboxLabeled("Show the room switch on lamps", ref s.showGizmo);
+            listing.CheckboxLabeled("Silent switching", ref s.silentSwitching,
+                "Mutes the vanilla power click when a room switches itself. Flicking a lamp by hand still clicks.");
             listing.Label("Largest managed lamp: " + s.maxManagedWatts.ToString("F0") + " W");
             s.maxManagedWatts = Mathf.Round(listing.Slider(s.maxManagedWatts, 50f, 5000f) / 50f) * 50f;
 

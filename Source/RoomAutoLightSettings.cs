@@ -56,6 +56,11 @@ namespace RoomAutoLight
 
         public bool showGizmo = true;
 
+        // Vanilla plays a power click whenever a building loses or gains power. That is fine when a
+        // player flicks a switch; it is not fine several times a minute for every room in the
+        // colony. Hand flicks still click.
+        public bool silentSwitching = true;
+
         // Anything drawing more than this is treated as industrial equipment, not a room lamp.
         public float maxManagedWatts = 1000f;
 
@@ -134,6 +139,7 @@ namespace RoomAutoLight
             Scribe_Values.Look(ref duskGlowThreshold, "duskGlowThreshold", 0.6f);
             Scribe_Values.Look(ref darknessGlowThreshold, "darknessGlowThreshold", 0.5f);
             Scribe_Values.Look(ref showGizmo, "showGizmo", true);
+            Scribe_Values.Look(ref silentSwitching, "silentSwitching", true);
             Scribe_Values.Look(ref maxManagedWatts, "maxManagedWatts", 1000f);
             Scribe_Values.Look(ref includedDefNamesRaw, "includedDefNamesRaw", "");
             Scribe_Values.Look(ref excludedDefNamesRaw, "excludedDefNamesRaw", "");
