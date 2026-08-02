@@ -8,10 +8,16 @@ All notable changes to Room Auto Light. Format follows
 
 ### Performance
 
-Measured on a purpose-built benchmark colony: a 10x10 lattice of 4x4 rooms, doors between
-neighbours, **400 lamps**, wired and battery-backed, with colonists wandering to drive occupancy.
-Both sides of each comparison ran in one process on the same map with the same pawns, switching the
-behaviour at runtime, because separate launches vary more than the changes being measured.
+Measured in game on a purpose-built benchmark colony: a 10x10 lattice of 4x4 rooms, doors between
+neighbours, **400 lamps**, wired and battery-backed, with drafted colonists teleported on a fixed
+schedule across a sterilised map. Three consecutive runs produce an identical workload to the unit.
+Both sides of each comparison ran in one process on the same map, switching the behaviour at
+runtime, because separate launches vary more than the changes being measured. Full method and
+results in `PERFORMANCE.md`.
+
+On that colony the mod costs about **42 us per tick**, roughly **0.25% of a 60 TPS budget**, and
+about **1.1 ms per room switch** — the majority of which is the engine's own glow work rather than
+this mod's logic. Cost scales with how often rooms change state, not with how many lamps exist.
 
 - **Glow invalidation is coalesced across a room switch.** Profiling put 78% of the mod's time in
   room switches costing 2.7 ms each — none of it in this mod's own logic. `GlowGrid.DirtyCell` does
@@ -43,9 +49,15 @@ behaviour at runtime, because separate launches vary more than the changes being
 
 ### Added
 
-- A benchmark harness behind a command-line flag, building the grid off map generation and reporting
-  to the log without any interaction. Debug actions cover building the grid on an existing colony
-  and starting or stopping a recording.
+- **Silent switching.** RimWorld plays the power click — the same sound as a power failure —
+  whenever a building gains or loses power. Reasonable for a hand-thrown switch, not for every room
+  in the colony several times a minute, which players reported hearing constantly. Every power
+  change this mod makes is now silent, from every path: a room switching itself, a rebuild handing a
+  lamp back, an ungroup, a circuit reset, or the mod being switched off. Flicking a lamp by hand
+  still clicks. Setting: `silentSwitching`.
+- A benchmark harness behind a command-line flag, building the colony off map generation and
+  reporting to the log without any interaction. Debug actions cover building it on an existing save
+  and starting or stopping a recording. See `PERFORMANCE.md`.
 
 ## [1.0.0] - 2026-08-01
 
