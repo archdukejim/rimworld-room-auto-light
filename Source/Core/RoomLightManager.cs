@@ -122,11 +122,13 @@ namespace RoomAutoLight
 
         public void Register(Building light)
         {
+            if (light == null) return;
             if (registered.Add(light)) dirty = true;
         }
 
         public void Unregister(Building light)
         {
+            if (light == null) return;
             LightSuppression.Release(light);
             lastRoomSignature.Remove(light.thingIDNumber);
             if (brokenIds.Remove(light.thingIDNumber)) brokenLights.Remove(light);
@@ -227,6 +229,7 @@ namespace RoomAutoLight
             scratchAnchorCells.Clear();
             foreach (KeyValuePair<IntVec3, RoomLightPrefs> pair in anchors)
             {
+                if (!pair.Key.InBounds(map)) continue;
                 Room room = RegionAndRoomQuery.RoomAtOrAdjacent(pair.Key, map, RegionType.Set_Passable);
                 if (room != null && room.ID == roomId) scratchAnchorCells.Add(pair.Key);
             }
