@@ -58,6 +58,11 @@ namespace RoomAutoLight
         private readonly List<IntVec3> scratchAnchorCells = new List<IntVec3>();
         private readonly HashSet<int> previouslyOccupied = new HashSet<int>();
 
+        // Room.ExtentsClose is not cached by the game: every read walks the room's whole region
+        // list. The fingerprint is per room but asked for per lamp, so it is memoised for the
+        // duration of one rebuild.
+        private readonly Dictionary<int, int> fingerprintThisPass = new Dictionary<int, int>();
+
         private bool dirty = true;
         private bool wasEnabled = true;
         private int nextRebuildTick;
@@ -338,6 +343,7 @@ namespace RoomAutoLight
             HashSet<Building> assigned = scratchAssigned;
             stale.Clear();
             assigned.Clear();
+            fingerprintThisPass.Clear();
 
             foreach (Building light in registered)
             {
@@ -426,7 +432,14 @@ namespace RoomAutoLight
         private bool NoteRoomAndCheckBreak(Building light, Room room)
         {
             int id = light.thingIDNumber;
-            int signature = room.ID * 397 ^ RoomLightUtility.RoomFingerprint(room);
+
+            int fingerprint;
+            if (!fingerprintThisPass.TryGetValue(room.ID, out fingerprint))
+            {
+                fingerprint = RoomLightUtility.RoomFingerprint(room);
+                fingerprintThisPass[room.ID] = fingerprint;
+            }
+            int signature = room.ID * 397 ^ fingerprint;
 
             int previous;
             if (!lastRoomSignature.TryGetValue(id, out previous))
