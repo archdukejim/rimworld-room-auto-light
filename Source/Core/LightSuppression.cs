@@ -30,22 +30,29 @@ namespace RoomAutoLight
             return suppressed.Count > 0 && suppressed.Contains(thing);
         }
 
-        /// <summary>Cuts the light: suppress first, then drop power so the glower goes dark in the same call.</summary>
-        public static void TurnOff(Building light)
+        /// <summary>
+        /// Cuts the light: suppress first, then drop power so the glower goes dark in the same call.
+        /// Returns true if this actually changed the lamp, which is what separates a real
+        /// transition from an idempotent re-application.
+        /// </summary>
+        public static bool TurnOff(Building light)
         {
-            if (light == null) return;
+            if (light == null) return false;
             suppressed.Add(light);
             CompPowerTrader power = light.TryGetComp<CompPowerTrader>();
-            if (power != null && power.PowerOn) power.PowerOn = false;
+            if (power == null || !power.PowerOn) return false;
+            power.PowerOn = false;
+            return true;
         }
 
         /// <summary>Releases the hold. Does not power anything up; PowerUp does that.</summary>
-        public static void Unsuppress(Building light)
+        public static bool Unsuppress(Building light)
         {
-            if (light == null) return;
-            if (!suppressed.Remove(light)) return;
+            if (light == null) return false;
+            if (!suppressed.Remove(light)) return false;
             CompGlower glower = light.TryGetComp<CompGlower>();
             if (glower != null && light.Spawned) glower.UpdateLit(light.Map);
+            return true;
         }
 
         /// <summary>
@@ -54,14 +61,15 @@ namespace RoomAutoLight
         /// random. Left to vanilla, a room comes up one lamp at a time over several seconds.
         /// The conditions mirror the ones CompPowerTrader.PowerOn would otherwise warn about.
         /// </summary>
-        public static void PowerUp(Building light)
+        public static bool PowerUp(Building light)
         {
-            if (light == null || !light.Spawned) return;
+            if (light == null || !light.Spawned) return false;
             CompPowerTrader power = light.TryGetComp<CompPowerTrader>();
-            if (power == null || power.PowerOn || power.PowerNet == null) return;
-            if (!FlickUtility.WantsToBeOn(light)) return;
-            if (BreakdownableUtility.IsBrokenDown(light)) return;
+            if (power == null || power.PowerOn || power.PowerNet == null) return false;
+            if (!FlickUtility.WantsToBeOn(light)) return false;
+            if (BreakdownableUtility.IsBrokenDown(light)) return false;
             power.PowerOn = true;
+            return true;
         }
 
         /// <summary>

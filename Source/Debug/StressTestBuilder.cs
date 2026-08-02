@@ -17,6 +17,12 @@ namespace RoomAutoLight
     {
         public const string CommandLineArg = "roomautolight-stress";
 
+        /// <summary>
+        /// Builds the grid and benchmarks, but leaves this mod's automation switched off, so the
+        /// same map can be used to measure a competing mod or a bare baseline.
+        /// </summary>
+        public const string PassiveArg = "roomautolight-passive";
+
         private const int Rooms = 10;      // rooms per side
         private const int Interior = 4;    // interior size of each room
         private const int Pitch = Interior + 1;
@@ -24,7 +30,16 @@ namespace RoomAutoLight
 
         public static bool RequestedOnMapGen
         {
-            get { return GenCommandLine.CommandLineArgPassed(CommandLineArg); }
+            get
+            {
+                return GenCommandLine.CommandLineArgPassed(CommandLineArg)
+                       || GenCommandLine.CommandLineArgPassed(PassiveArg);
+            }
+        }
+
+        public static bool Passive
+        {
+            get { return GenCommandLine.CommandLineArgPassed(PassiveArg); }
         }
 
         public static void Build(Map map, int pawnCount = 12)

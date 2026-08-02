@@ -20,6 +20,9 @@ namespace RoomAutoLight
         /// </summary>
         public static bool BypassFingerprintCache;
 
+        /// <summary>Benchmark switch: invalidate glow once per lamp, the way it worked before batching.</summary>
+        public static bool BypassGlowBatch;
+
         private static long tickCount;
         private static long rebuildCount;
         private static long evaluatedGroups;
@@ -28,6 +31,17 @@ namespace RoomAutoLight
         private static double rebuildMs;
         private static double occupancyMs;
         private static double worstTickMs;
+
+        // Inside a group evaluation.
+        private static double computeWantMs;
+        private static double affordMs;
+        private static double applyMs;
+        private static long affordCalls;
+        private static long netQueries;
+        private static double applyTransitionMs;
+        private static double applyNoOpMs;
+        private static long applyTransitions;
+        private static long applyNoOps;
 
         private static readonly double TicksToMs = 1000.0 / Stopwatch.Frequency;
 
@@ -61,6 +75,39 @@ namespace RoomAutoLight
             occupancyMs += MsSince(start);
         }
 
+        public static void AddComputeWant(long start)
+        {
+            computeWantMs += MsSince(start);
+        }
+
+        public static void AddAfford(long start)
+        {
+            affordMs += MsSince(start);
+            affordCalls++;
+        }
+
+        public static void AddApply(long start, bool changed)
+        {
+            double ms = MsSince(start);
+            applyMs += ms;
+            if (changed)
+            {
+                applyTransitionMs += ms;
+                applyTransitions++;
+            }
+            else
+            {
+                applyNoOpMs += ms;
+                applyNoOps++;
+            }
+        }
+
+        /// <summary>One PowerNet energy query, each of which walks every comp on that net.</summary>
+        public static void CountNetQuery()
+        {
+            netQueries++;
+        }
+
         public static void Reset()
         {
             tickCount = 0;
@@ -70,6 +117,15 @@ namespace RoomAutoLight
             rebuildMs = 0;
             occupancyMs = 0;
             worstTickMs = 0;
+            computeWantMs = 0;
+            affordMs = 0;
+            applyMs = 0;
+            affordCalls = 0;
+            netQueries = 0;
+            applyTransitionMs = 0;
+            applyNoOpMs = 0;
+            applyTransitions = 0;
+            applyNoOps = 0;
         }
 
         public static string Report()
@@ -93,6 +149,23 @@ namespace RoomAutoLight
                               : ""));
             sb.AppendLine("rebuild share       : " + (rebuildMs / totalMs * 100.0).ToString("F1") + " % of mod time");
             sb.AppendLine("occupancy share     : " + (occupancyMs / totalMs * 100.0).ToString("F1") + " % of mod time");
+            sb.AppendLine("--- inside group evaluation ---");
+            sb.AppendLine("ComputeWant         : " + (computeWantMs / totalMs * 100.0).ToString("F1")
+                          + " % (" + (computeWantMs / evaluatedGroups * 1000.0).ToString("F1") + " us/eval)");
+            sb.AppendLine("CanAffordWholeGroup : " + (affordMs / totalMs * 100.0).ToString("F1")
+                          + " % (" + affordCalls + " calls, "
+                          + (affordCalls > 0 ? (affordMs / affordCalls * 1000.0).ToString("F1") : "0")
+                          + " us/call)");
+            sb.AppendLine("Apply               : " + (applyMs / totalMs * 100.0).ToString("F1")
+                          + " % (" + (applyMs / evaluatedGroups * 1000.0).ToString("F1") + " us/eval)");
+            sb.AppendLine("  transitions       : " + applyTransitions + " calls, "
+                          + (applyTransitions > 0 ? (applyTransitionMs / applyTransitions * 1000.0).ToString("F1") : "0")
+                          + " us each, " + (applyTransitionMs / totalMs * 100.0).ToString("F1") + " % of mod time");
+            sb.AppendLine("  no-ops            : " + applyNoOps + " calls, "
+                          + (applyNoOps > 0 ? (applyNoOpMs / applyNoOps * 1000.0).ToString("F1") : "0")
+                          + " us each, " + (applyNoOpMs / totalMs * 100.0).ToString("F1") + " % of mod time");
+            sb.AppendLine("PowerNet queries    : " + netQueries
+                          + " (each walks every comp on the net)");
             return sb.ToString();
         }
     }

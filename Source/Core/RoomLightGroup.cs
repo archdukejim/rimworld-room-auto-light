@@ -92,9 +92,20 @@ namespace RoomAutoLight
             if (!isOutdoor && (room == null || room.Dereferenced)) return;
 
             RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
-            bool want = ComputeWant(occupied, sleepersPresent, settings);
 
-            if (want && settings.aggregatePower && !CanAffordWholeGroup(now, settings))
+            long mark = RoomLightProfiler.Enabled ? RoomLightProfiler.Now() : 0L;
+            bool want = ComputeWant(occupied, sleepersPresent, settings);
+            if (RoomLightProfiler.Enabled) RoomLightProfiler.AddComputeWant(mark);
+
+            bool denied = false;
+            if (want && settings.aggregatePower)
+            {
+                mark = RoomLightProfiler.Enabled ? RoomLightProfiler.Now() : 0L;
+                denied = !CanAffordWholeGroup(now, settings);
+                if (RoomLightProfiler.Enabled) RoomLightProfiler.AddAfford(mark);
+            }
+
+            if (denied)
             {
                 reason = "not enough power for the whole room";
                 darkAtTick = -1;
@@ -224,6 +235,7 @@ namespace RoomAutoLight
                 foreach (KeyValuePair<PowerNet, float> pair in needByNet)
                 {
                     PowerNet net = pair.Key;
+                    if (RoomLightProfiler.Enabled) RoomLightProfiler.CountNetQuery();
                     float stored = net.CurrentStoredEnergy();
 
                     // Mirrors PowerNet.PowerNetTick: a net with batteries keeps a small reserve
@@ -254,16 +266,46 @@ namespace RoomAutoLight
         /// </summary>
         public void Apply(bool on)
         {
-            lit = on;
-
-            if (!on)
+            if (RoomLightProfiler.Enabled)
             {
-                for (int i = 0; i < lights.Count; i++) LightSuppression.TurnOff(lights[i]);
+                long mark = RoomLightProfiler.Now();
+                bool changed = ApplyInternal(on);
+                RoomLightProfiler.AddApply(mark, changed);
                 return;
             }
+            ApplyInternal(on);
+        }
 
-            for (int i = 0; i < lights.Count; i++) LightSuppression.Unsuppress(lights[i]);
-            for (int i = 0; i < lights.Count; i++) LightSuppression.PowerUp(lights[i]);
+        /// <summary>Returns true if any member actually changed state.</summary>
+        private bool ApplyInternal(bool on)
+        {
+            lit = on;
+            bool changed = false;
+
+            // The members' glow rects overlap almost entirely, so their invalidation is collected
+            // and replayed once rather than once per lamp.
+            GlowDirtyBatch.Begin(map);
+            try
+            {
+                if (!on)
+                {
+                    for (int i = 0; i < lights.Count; i++)
+                        if (LightSuppression.TurnOff(lights[i])) changed = true;
+                }
+                else
+                {
+                    for (int i = 0; i < lights.Count; i++)
+                        if (LightSuppression.Unsuppress(lights[i])) changed = true;
+                    for (int i = 0; i < lights.Count; i++)
+                        if (LightSuppression.PowerUp(lights[i])) changed = true;
+                }
+            }
+            finally
+            {
+                GlowDirtyBatch.Flush();
+            }
+
+            return changed;
         }
 
         public void ReleaseAll()
