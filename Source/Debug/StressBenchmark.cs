@@ -40,7 +40,8 @@ namespace RoomAutoLight
         {
             get
             {
-                bool rival = ModsConfig.IsActive(RivalPackageId);
+                // RimWorld stores package ids lower-cased, so a mixed-case literal never matches.
+                bool rival = ModsConfig.IsActive(RivalPackageId.ToLowerInvariant());
                 string mine = passive ? "RoomAutoLight OFF" : "RoomAutoLight ON";
                 return mine + ", AutoLightSwitch " + (rival ? "ON" : "off");
             }
