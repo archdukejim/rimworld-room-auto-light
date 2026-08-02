@@ -47,7 +47,17 @@ Sun lamps are left to vanilla, which already powers them down for the plant rest
 --- SETTINGS ---
 Animals as occupants, default sleeper handling, all-or-nothing power and its retry delay, whether room changes break circuits, the delay before a room goes dark, the re-evaluation interval, the glow levels that count as dusk and as dark, outdoor grouping, a wattage ceiling, and defName lists to force lamps in or out.
 
+--- PERFORMANCE ---
+Benchmarked in game on a purpose-built colony of 100 rooms and 400 lamps: about 0.25% of a 60 TPS tick budget, and cost that scales with how often rooms change rather than with how many lamps you own. Full method and results:
+https://github.com/archdukejim/rimworld-room-auto-light/wiki/Performance
+
 --- CHANGE LOG ---
+1.0.1
+  - Silent switching: no more power click every time a room lights itself. Hand flicks still click.
+  - Room switches cost half what they did, by coalescing the glow update across the whole room.
+  - Rebuilds cost about a third of what they did, and are debounced so a raid cannot force one every tick.
+  - No allocation when a building is selected.
+
 1.0
   - Rooms are driven as one group: every lamp switches on the same tick.
   - All-or-nothing power: a room only lights if the grid can pay for every lamp at once.

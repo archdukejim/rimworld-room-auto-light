@@ -19,6 +19,7 @@ Your colonists do not walk around flicking every lamp in a room one at a time, a
 [*][b]Power is aggregated, all or nothing.[/b] A room only lights up if the grid can pay for every one of its lamps at once, so it never comes up half lit. Select any lamp and the room reports as a single load: lamp count, wattage, current state, and why.
 [*][b]Move a wall and the circuit trips.[/b] A blast, a deconstruction or a new wall changes the room under its lamps: they drop at once and stay down until you reset them.
 [*][b]Any lamp can be pulled out.[/b] Ungroup a lamp and it goes back to plain vanilla behaviour, keeping its own power and its own switch.
+[*][b]Quiet.[/b] No power click every time a room lights itself. Flicking a lamp by hand still clicks, exactly as vanilla does.
 [/list]
 
 [h2]Outdoor lamps[/h2]
@@ -79,7 +80,23 @@ Animals as occupants, default sleeper handling, all-or-nothing power and its ret
 [*][b]Light on the tick.[/b] One room is evaluated at a time, rooms are spread across the window, and nothing in the steady path allocates.
 [/list]
 
+[h2]Performance[/h2]
+
+Benchmarked in game rather than guessed at, on a purpose-built colony of [b]100 rooms and 400 lamps[/b] with colonists driven through it on a fixed schedule. It costs about [b]0.25% of a 60 TPS tick budget[/b], and the cost scales with how often rooms change state rather than with how many lamps you own — a large colony whose lamps rarely change is close to free.
+
+Full method, results, and the reasoning behind both:
+https://github.com/archdukejim/rimworld-room-auto-light/wiki/Performance
+
 [h2]Change log[/h2]
+
+[b]1.0.1[/b]
+[list]
+[*][b]Silent switching.[/b] RimWorld plays the power click — the same sound as a power failure — whenever anything gains or loses power. Fine for a switch you throw by hand; not fine several times a minute, forever, for every room in the colony. Every switch this mod makes is now silent, on every path. Hand flicks still click. Can be turned off in settings.
+[*][b]Room switches cost half what they did.[/b] 1627.8 us down to 796.4 us per switch. The engine invalidates glow per lamp over the lamp's whole lit area, and four lamps in one room have nearly the same area — so a room switch was marking about 2500 cells to cover a union of about 730. A switch now collects the cells and hands the distinct set over once.
+[*][b]Mean tick cost down 35%[/b], 59.1 us to 38.4 us, and the worst tick down 2.5x, 4354 us to 1746 us.
+[*][b]Rebuilds cost about a third of what they did[/b], and are debounced to at most one per 30 ticks — walls coming down during a raid previously forced a full rebuild every single tick.
+[*][b]No allocation when a building is selected.[/b] The gizmo hook was allocating for every selected building each frame, lamp or not.
+[/list]
 
 [b]1.0[/b]
 [list]
