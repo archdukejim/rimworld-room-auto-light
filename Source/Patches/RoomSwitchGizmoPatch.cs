@@ -23,19 +23,31 @@ namespace RoomAutoLight
         // control that still toggles each of them.
         private const int UngroupKey = 84750001;
 
+        /// <summary>
+        /// Deliberately not an iterator. An iterator method builds its state machine when it is
+        /// called, not when it is first enumerated, so every building on the map would allocate a
+        /// wrapper for each frame it stayed selected — even the ones that are not lamps. Doing the
+        /// cheap checks eagerly and handing the original sequence straight back keeps that cost to
+        /// lamps only.
+        /// </summary>
         [HarmonyPostfix]
         public static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> values, Building __instance)
         {
-            foreach (Gizmo gizmo in values) yield return gizmo;
-
             RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
-            if (!settings.enabled || !settings.showGizmo) yield break;
-            if (__instance.Map == null || !RoomLightUtility.IsManagedLightDef(__instance.def)) yield break;
+            if (!settings.enabled || !settings.showGizmo) return values;
+            if (__instance.Map == null || !RoomLightUtility.IsManagedLightDef(__instance.def)) return values;
 
             RoomLightManager manager = __instance.Map.GetComponent<RoomLightManager>();
-            if (manager == null) yield break;
+            if (manager == null) return values;
 
-            Building light = __instance;
+            return AppendGroupGizmos(values, __instance, manager, settings);
+        }
+
+        private static IEnumerable<Gizmo> AppendGroupGizmos(IEnumerable<Gizmo> values, Building light,
+            RoomLightManager manager, RoomAutoLightSettings settings)
+        {
+            foreach (Gizmo gizmo in values) yield return gizmo;
+
             bool ungrouped = manager.IsUngrouped(light);
 
             // Rendered before the group check and regardless of membership: once a lamp is out of
