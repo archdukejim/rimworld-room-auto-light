@@ -63,6 +63,7 @@ namespace RoomAutoLight
         // duration of one rebuild.
         private readonly Dictionary<int, int> fingerprintThisPass = new Dictionary<int, int>();
 
+        private int profiledGroupEvals;
         private bool dirty = true;
         private bool wasEnabled = true;
         private int nextRebuildTick;
@@ -102,6 +103,12 @@ namespace RoomAutoLight
                 else if (RoomLightUtility.IsGrowLight(building)) registeredGrowLights.Add(building);
             }
             dirty = true;
+        }
+
+        public override void MapGenerated()
+        {
+            base.MapGenerated();
+            if (StressTestBuilder.RequestedOnMapGen) StressTestBuilder.Build(map);
         }
 
         public override void MapRemoved()
@@ -225,6 +232,20 @@ namespace RoomAutoLight
 
         public override void MapComponentTick()
         {
+            if (!RoomLightProfiler.Enabled)
+            {
+                TickInternal();
+                return;
+            }
+
+            long start = RoomLightProfiler.Now();
+            int before = profiledGroupEvals;
+            TickInternal();
+            RoomLightProfiler.RecordTick(start, profiledGroupEvals - before);
+        }
+
+        private void TickInternal()
+        {
             RoomAutoLightSettings settings = RoomAutoLightMod.Settings;
 
             if (!settings.enabled)
@@ -246,12 +267,17 @@ namespace RoomAutoLight
 
             if ((dirty && now >= earliestRebuildTick) || now >= nextRebuildTick)
             {
+                long rebuildStart = RoomLightProfiler.Enabled ? RoomLightProfiler.Now() : 0L;
                 RebuildGroups(now);
+                if (RoomLightProfiler.Enabled) RoomLightProfiler.RecordRebuild(rebuildStart);
+
                 nextRebuildTick = now + RebuildIntervalTicks;
                 earliestRebuildTick = now + RebuildDebounceTicks;
             }
 
+            long occupancyStart = RoomLightProfiler.Enabled ? RoomLightProfiler.Now() : 0L;
             RefreshOccupancy(now, false);
+            if (RoomLightProfiler.Enabled) RoomLightProfiler.RecordOccupancy(occupancyStart);
 
             if (urgentRoomIds.Count > 0)
             {
@@ -259,7 +285,10 @@ namespace RoomAutoLight
                 {
                     RoomLightGroup group;
                     if (groups.TryGetValue(roomId, out group))
+                    {
                         group.Evaluate(now, IsOccupied(group), roomsWithSleeper.Contains(group.roomId));
+                        profiledGroupEvals++;
+                    }
                 }
                 urgentRoomIds.Clear();
             }
@@ -269,6 +298,7 @@ namespace RoomAutoLight
             {
                 RoomLightGroup group = bucket[i];
                 group.Evaluate(now, IsOccupied(group), roomsWithSleeper.Contains(group.roomId));
+                profiledGroupEvals++;
             }
         }
 
